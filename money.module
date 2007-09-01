@@ -29,6 +29,31 @@ function money_field_settings($op, $field) {
   switch ($op) {
     case 'form':
       $form = array();
+      $form['decimal_separator'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Decimal separator'),
+        '#default_value' => _money_get_decimal_separator($field['decimal_separator']),
+        '#size' => 5,
+        '#maxlength' => 255,
+        '#description' => t(
+          'Three decimal separators are used across the planet: the dot
+          (English-speaking countries), the comma (Europe) and the momayyez
+          (Arab world and Iran). ISO 31-0 specifies both the dot and the comma
+          as valid, but prefers the comma, this is also the default.'
+        ),
+      );
+      $form['digit_group_separator'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Digit group separator'),
+        '#default_value' => _money_get_digit_group_separator($field['digit_group_separator']),
+        '#size' => 5,
+        '#maxlength' => 255,
+        '#description' => t(
+          'Three digit group separators are used across the planet: the comma
+          (English-speaking countries), the dot (Europe) and the space. ISO
+          31-0 specifies only the space as valid, this is also the default.'
+        ),
+      );
       $form['currency_list'] = array(
         '#value' => theme('money_field_settings_currency_list', currency_api_get_list()),
       );
@@ -52,7 +77,7 @@ function money_field_settings($op, $field) {
       break;
 
     case 'save':
-      return array('allowed_currencies');
+      return array('decimal_separator', 'digit_group_separator', 'allowed_currencies');
 
     case 'database columns':
       $columns['amount'] = array(
@@ -123,9 +148,9 @@ function money_field_formatter($field, $item, $formatter, $node) {
     return '';
   }
   else {
-    $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-    $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
-    return check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
+    $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
+    $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
+    return check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator) .' '. $item['currency']);
   }
 }
 
@@ -141,43 +166,6 @@ function money_widget_info() {
   );
 }
 
-/**
- * Implementation of hook_widget_settings().
- */
-function money_widget_settings($op, $widget) {
-  switch ($op) {
-    case 'form':
-      $form = array();
-      $form['decimal_separator'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Decimal separator'),
-        '#default_value' => _money_get_decimal_separator($widget['decimal_separator']),
-        '#size' => 5,
-        '#maxlength' => 255,
-        '#description' => t(
-          'Three decimal separators are used across the planet: the dot
-          (English-speaking countries), the comma (Europe) and the momayyez
-          (Arab world and Iran). ISO 31-0 specifies both the dot and the comma
-          as valid, but prefers the comma, this is also the default.'
-        ),
-      );
-      $form['digit_group_separator'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Digit group separator'),
-        '#default_value' => _money_get_digit_group_separator($widget['digit_group_separator']),
-        '#size' => 5,
-        '#maxlength' => 255,
-        '#description' => t(
-          'Three digit group separators are used across the planet: the comma
-          (English-speaking countries), the dot (Europe) and the space. ISO
-          31-0 specifies only the space as valid, this is also the default.'
-        ),
-      );     
-      return $form;
-    case 'save':
-      return array('decimal_separator', 'digit_group_separator');
-  }
-}
 
 /**
  * Implementation of hook_widget().
@@ -186,8 +174,8 @@ function money_widget($op, &$node, $field, &$items) {
   if ($field['widget']['type'] == 'money_default') {
     switch ($op) {
       case 'prepare form values':
-        $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-        $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
+        $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
+        $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
       
         if (!count($items)) {
           $items[0] = array();
@@ -210,18 +198,18 @@ function money_widget($op, &$node, $field, &$items) {
 
         // Variables to be used in the "amount" form item.
         if (isset($field['widget']['default_value'][0]['amount'])) {
-          $amount_default = check_plain(number_format($field['widget']['default_value'][0]['amount']/100, 2, $decimal_separator, $digit_group_separator));
+          $amount_default = check_plain(number_format($field['widget']['default_value'][0]['amount'] / 100, 2, $decimal_separator, $digit_group_separator));
         }
         else {
-          $amount_default = check_plain(number_format("0{$decimal_separator}00"/100, 2, $decimal_separator, $digit_group_separator));
+          $amount_default = check_plain(number_format("0{$decimal_separator}00" / 100, 2, $decimal_separator, $digit_group_separator));
         }
         $amount_description = t(
           'Use "@decimal_separator" as the decimal separator and (optionally)
           "@digit_group_separator" as the digit group separator. You can
           only enter two decimals.',
           array(
-            '@decimal_separator' => $field['widget']['decimal_separator'],
-            '@digit_group_separator' => $field['widget']['digit_group_separator'],
+            '@decimal_separator' => $field['decimal_separator'],
+            '@digit_group_separator' => $field['digit_group_separator'],
           )
         );
 
@@ -272,8 +260,8 @@ function money_widget($op, &$node, $field, &$items) {
       
       case 'validate':
         // Generate the regular expression to validate the entered amounts.
-        $decimal_separator = preg_quote(_money_get_decimal_separator($field['widget']['decimal_separator']));
-        $digit_group_separator = preg_quote(_money_get_digit_group_separator($field['widget']['digit_group_separator']));
+        $decimal_separator = preg_quote(_money_get_decimal_separator($field['decimal_separator']));
+        $digit_group_separator = preg_quote(_money_get_digit_group_separator($field['digit_group_separator']));
         $regexp = "/^-?(((\d{1,3}". $digit_group_separator .")?(\d{3}". $digit_group_separator .")*(\d{3}){1})|\d+)(". $decimal_separator ."\d{1,2})?$/";
 
         // Make sure the amount is entered using the correct format.
@@ -285,8 +273,8 @@ function money_widget($op, &$node, $field, &$items) {
         break;
 
       case 'process form values':
-        $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-        $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
+        $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
+        $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
 
         foreach ($items as $delta => $item) {
           if (empty($item['amount'])) {
