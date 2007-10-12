@@ -118,8 +118,8 @@ function money_field($op, &$node, $field, &$items, $teaser, $page) {
           if (!in_array($item['currency'], $allowed_currencies)) {
             form_set_error($field['field_name'] .']['. $delta .'][currency', t('The currency %currency is not allowed.', array('%currency' => t($item['currency']))));
           }
-          // Validate the amount.
-          if (!is_numeric($item['amount'])) {
+          // Validate the amount (allow empty value when the field is not required).
+          if (!is_numeric($item['amount']) && !($item['amount'] == '' && !$field['required'])) {
             form_set_error($field['field_name'] .']['. $delta .'][amount', t('You entered an invalid amount.'));
           }
         }
