@@ -3,9 +3,3 @@ name = Money
 description = Allows the user to define a currency and an amount in custom content types.
 dependencies = content currency_api
 package = CCK
-
-; Information added by drupal.org packaging script on 2007-09-01
-version = "5.x-1.2"
-project = "money"
-datestamp = "1188643205"
-
