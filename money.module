@@ -133,8 +133,12 @@ function money_field($op, &$node, $field, &$items, $teaser, $page) {
  */
 function money_field_formatter_info() {
   return array(
-    'default' => array(
-      'label' => t('Default'),
+    'currency_after_amount' => array(
+      'label' => t('Currency after amount'),
+      'field types' => array('money'),
+    ),
+    'currency_before_amount' => array(
+      'label' => t('Currency before amount'),
       'field types' => array('money'),
     ),
   );
