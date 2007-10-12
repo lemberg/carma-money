@@ -300,6 +300,37 @@ function money_widget($op, &$node, $field, &$items) {
 
 
 //----------------------------------------------------------------------------
+// Token hooks.
+
+/**
+ * Implementation of hook_token_values().
+ */
+function money_token_values($type, $object = NULL) {
+  if ($type == 'field') {
+    $tokens = array();
+    $first = $object[0];
+    $tokens['money'] = $first['view'];
+    $tokens['currency'] = $first['currency'];
+    $tokens['amount'] = $first['amount'];
+    return $tokens;
+  }
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function money_token_list($type = 'all') {
+  if ($type == 'field' || $type == 'all') {
+    $tokens = array();
+    $tokens['money']['money'] = t('The combination of both the currency and the amount.');
+    $tokens['money']['currency'] = t('A 3-letter ISO currency code.');
+    $tokens['money']['amount'] = t('An amount, formatted as specified in the field settings.');
+    return $tokens;
+  }
+}
+
+
+//----------------------------------------------------------------------------
 // Private functions.
 
 /**
