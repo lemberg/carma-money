@@ -154,7 +154,14 @@ function money_field_formatter($field, $item, $formatter, $node) {
   else {
     $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
     $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
-    return check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator) .' '. $item['currency']);
+    $formatted_amount = check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
+
+    if ($formatter == 'currency_after_amount') {
+      return  $formatted_amount .' '. $item['currency'];
+    }
+    else {
+      return  $item['currency'] .' '. $formatted_amount;
+    }
   }
 }
 
