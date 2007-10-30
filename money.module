@@ -144,14 +144,30 @@ function money_field($op, &$node, $field, &$items, $teaser, $page) {
  */
 function money_field_formatter_info() {
   return array(
-    'currency_after_amount' => array(
-      'label' => t('Currency after amount'),
+    'code_after_amount' => array(
+      'label' => t('3-letter code after amount'),
       'field types' => array('money'),
     ),
-    'currency_before_amount' => array(
-      'label' => t('Currency before amount'),
+    'code_before_amount' => array(
+      'label' => t('3-letter code before amount'),
       'field types' => array('money'),
     ),
+    'full_after_amount' => array(
+      'label' => t('Full name after amount'),
+      'field types' => array('money'),
+    ),
+    'full_before_amount' => array(
+      'label' => t('Full name before amount'),
+      'field types' => array('money'),
+    ),
+    'symbol_after_amount' => array(
+      'label' => t('Symbol after amount'),
+      'field types' => array('money'),
+    ),
+    'symbol_before_amount' => array(
+      'label' => t('Symbol before amount'),
+      'field types' => array('money'),
+    )
   );
 }
 
@@ -167,11 +183,27 @@ function money_field_formatter($field, $item, $formatter, $node) {
     $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
     $formatted_amount = check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
 
-    if ($formatter == 'currency_after_amount') {
-      return  $formatted_amount .' '. $item['currency'];
-    }
-    else {
-      return  $item['currency'] .' '. $formatted_amount;
+    $currencies = currency_api_get_list();
+    $symbols = currency_api_get_symbols();
+
+    switch ($formatter) {
+      case 'code_after_amount':
+        return  $formatted_amount .' '. $item['currency'];
+        
+      case 'code_before_amount':
+        return  $item['currency'] .' '. $formatted_amount;
+
+      case 'full_after_amount':
+        return $formatted_amount .' '. $currencies[$item['currency']];
+
+      case 'full_before_amount':
+        return $currencies[$item['currency']] .' '. $formatted_amount;
+
+      case 'symbol_after_amount':
+        return $formatted_amount .' '. $symbols[$item['currency']];
+
+      case 'symbol_before_amount':
+        return $symbols[$item['currency']] .' '. $formatted_amount;
     }
   }
 }
