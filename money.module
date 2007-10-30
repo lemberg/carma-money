@@ -91,16 +91,27 @@ function money_field_settings($op, $field) {
       return $columns;
 
     case 'filters':
-      return array(
-        'default' => array(
-          'name' => t('Default'),
-          'operator' => 'views_handler_operator_gtlt',
+      $currencies = _money_parse_currencies($field['allowed_currencies']);
+      $options[$currency] = array_combine($currencies, $currencies);
+
+      $filters['currency'] = array(
+        'name' => t('Filter by currency'),
+        // It seems Views requires your operator handler to contain at least
+        // an "OR" operator if you want the multiple select to mark the
+        // selected currencies as selected when a user revisits the form. It's
+        // stored correctly in the DB though. So, as a work-around, I opted to
+        // use "OR" and "NOR" and then use the desired operators in the actual
+        // filter handler.
+        'operator' => array('OR' => t('Is One Of'), 'NOR' => t('Is None Of')),
+        'value' => array(
+          '#type' => 'select',
+          '#multiple' => TRUE,
+          '#options' => $options,
         ),
-        'currency_order' => array(
-          'name' => t('Order by currency'),
-          'operator' => 'views_handler_operator_gtlt',
-        ),
+        'handler' => 'money_views_handler_filter_currency',
+        'help' => t('This filter allows you to filter by currency (or multiple currencies).'),
       );
+      return $filters;
   }
 }
 
@@ -176,7 +187,6 @@ function money_widget_info() {
     ),
   );
 }
-
 
 /**
  * Implementation of hook_widget().
@@ -342,6 +352,27 @@ function money_token_list($type = 'all') {
 
 
 //----------------------------------------------------------------------------
+// Views handlers.
+
+/**
+ * Views filter handler: currency filter.
+ */
+function money_views_handler_filter_currency($op, $filter_data, $filter_info, &$query) {
+  $currencies = $filter_data['value'];
+  
+  $table = $filter_info['table'];
+  $table_field = $filter_info['content_db_info']['columns']['currency']['column'];
+  
+  // For the rationale behind this, see the comment for the "currency" filter
+  // in money_field_settings().
+  $operator = ($filter_data['operator'] == 'OR') ? 'IN' : 'NOT IN';
+
+  $query->add_table($table);
+  $query->add_where("$table.$table_field $operator ('". implode("','", $filter_data['value']) ."')");
+}
+
+
+//----------------------------------------------------------------------------
 // Private functions.
 
 /**
@@ -384,7 +415,7 @@ function _money_get_digit_group_separator($digit_group_separator = NULL) {
 
 
 //----------------------------------------------------------------------------
-// Theming functions.
+// Themeing functions.
 
 /**
  * @ingroup themeable
