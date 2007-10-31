@@ -468,8 +468,16 @@ function _money_get_digit_group_separator($digit_group_separator = NULL) {
 function theme_money_field_settings_currency_list($currencies) {
   $output = '';
 
-  $output .= '<div id="money-field-settings-currency-list">';
-  $output .= theme_item_list(array_values($currencies), t('Available currencies'));
+  $cols = 2;
+  $width = 100/$cols;
+  $chunks = array_chunk(array_values($currencies), 2);
+  $output .= '<div id="money-field-settings-currency-list" class="clear-block">';
+  $output .= '<h3>'. t('Available currencies') .'</h3>';
+  foreach ($chunks as $chunk) {
+    $output .= '<div style="float: left; width:'. $width .'%">';
+    $output .= theme('item_list', $chunk);
+    $output .= '</div>';
+  }
   $output .= '</div>';
 
   return $output;
