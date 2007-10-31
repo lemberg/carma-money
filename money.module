@@ -92,7 +92,7 @@ function money_field_settings($op, $field) {
 
     case 'filters':
       $currencies = _money_parse_currencies($field['allowed_currencies']);
-      $options[$currency] = array_combine($currencies, $currencies);
+      $options = array_combine($currencies, $currencies);
 
       $filters['currency'] = array(
         'name' => t('Filter by currency'),
