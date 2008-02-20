@@ -67,11 +67,16 @@ function money_field_settings($op, $field) {
       return $form;
 
     case 'validate':
-      $valid_currencies = array_keys(currency_api_get_list());
-      $allowed_currencies = _money_parse_currencies($field['allowed_currencies']);
-      foreach ($allowed_currencies as $currency) {
-        if (!in_array($currency, $valid_currencies)) {
-          form_set_error('allowed_currencies', t('The currency %currency is not a valid currency.', array('%currency' => $currency)));
+      // Empty list of allowed currencies means that *all* currencies will be
+      // used!
+      if (!empty($field['allowed_currencies'])) {
+        $valid_currencies = array_keys(currency_api_get_list());
+        $allowed_currencies = _money_parse_currencies($field['allowed_currencies']);
+
+        foreach ($allowed_currencies as $currency) {
+          if (!in_array($currency, $valid_currencies)) {
+            form_set_error('allowed_currencies', t('The currency %currency is not a valid currency.', array('%currency' => $currency)));
+          }
         }
       }
       break;
@@ -420,12 +425,13 @@ function money_views_handler_filter_currency($op, $filter_data, $filter_info, &$
  * Parse currency codes from a comma-separated list.
  *
  * @param $currencies_string
- *   A string containing a list of currency codes, separated by commas.
+ *   A string containing a list of currency codes, separated by commas. If the
+ *   string is empty, all currencies will be returned.
  * @return
  *   An array of currency code.
  */
 function _money_parse_currencies($currencies_string) {
-  return explode(',', str_replace(' ', '', trim($currencies_string)));
+  return (empty($currencies_string)) ? array_keys(currency_api_get_list()) : explode(',', str_replace(' ', '', trim($currencies_string)));
 }
 
 /**
