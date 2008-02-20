@@ -54,6 +54,15 @@ function money_field_settings($op, $field) {
           31-0 specifies only the space as valid, this is also the default.'
         ),
       );
+      $form['displayed_decimals'] = array(
+        '#type' => 'select',
+        '#title' => t('Displayed decimals'),
+        '#options' => array(0, 1, 2),
+        '#default_value' => (isset($field['displayed_decimals'])) ? $field['displayed_decimals'] : 2,
+        '#description' => t(
+          'The number of decimals that will be displayed in the formatters.'
+        ),
+      );
       $form['currency_list'] = array(
         '#value' => theme('money_field_settings_currency_list', currency_api_get_list()),
       );
@@ -67,6 +76,10 @@ function money_field_settings($op, $field) {
       return $form;
 
     case 'validate':
+      if (!in_array($field['displayed_decimals'], array(0, 1, 2))) {
+        form_set_error('displayed_decimals', t('Invalid number of displayed decimals. Valid numbers are 0, 1 and 2.'));
+      }
+
       // Empty list of allowed currencies means that *all* currencies will be
       // used!
       if (!empty($field['allowed_currencies'])) {
@@ -82,7 +95,12 @@ function money_field_settings($op, $field) {
       break;
 
     case 'save':
-      return array('decimal_separator', 'digit_group_separator', 'allowed_currencies');
+      return array(
+        'decimal_separator',
+        'digit_group_separator',
+        'displayed_decimals',
+        'allowed_currencies'
+      );
 
     case 'database columns':
       $columns['amount'] = array(
@@ -211,7 +229,7 @@ function money_field_formatter($field, $item, $formatter, $node) {
   else {
     $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
     $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
-    $formatted_amount = check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
+    $formatted_amount = check_plain(number_format($item['amount']/100, $field['displayed_decimals'], $decimal_separator, $digit_group_separator));
 
     $currencies = currency_api_get_list();
     $symbols = currency_api_get_symbols();
@@ -244,7 +262,7 @@ function money_field_formatter($field, $item, $formatter, $node) {
 function money_widget_info() {
   return array(
     'money_default' => array(
-      'label' => 'Select list for the currency, textfield for the amount',
+      'label' => 'Select list for the currency, text field for the amount',
       'field types' => array('money'),
     ),
   );
@@ -265,7 +283,7 @@ function money_widget($op, &$node, $field, &$items) {
         }
         else {
           foreach ($items as $delta => $item) {
-            $items[$delta]['amount'] = check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
+            $items[$delta]['amount'] = check_plain(number_format($item['amount'] / 100, $field['displayed_decimals'], $decimal_separator, $digit_group_separator));
           }
         }
         break;
