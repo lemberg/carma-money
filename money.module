@@ -481,6 +481,10 @@ function _money_amount_to_integer($amount, $decimal_separator, $digit_group_sepa
   // in reality (i.e. in forms and on display).
   $converted_amount *= 100;
 
+  // PHP's conversion from floats to ints is choppy at best, so make sure it
+  // gets converted properly.
+  $converted_amount = (int) ($converted_amount + 0.01);
+
   return $converted_amount;
 }
 
