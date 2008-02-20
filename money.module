@@ -214,22 +214,22 @@ function money_field_formatter($field, $item, $formatter, $node) {
 
     switch ($formatter) {
       case 'code_after_amount':
-        return  $formatted_amount .' '. $item['currency'];
+        return  $formatted_amount .'&nbsp;'. $item['currency'];
         
       case 'code_before_amount':
-        return  $item['currency'] .' '. $formatted_amount;
+        return  $item['currency'] .'&nbsp;'. $formatted_amount;
 
       case 'full_after_amount':
-        return $formatted_amount .' '. $currencies[$item['currency']];
+        return $formatted_amount .'&nbsp;'. $currencies[$item['currency']];
 
       case 'full_before_amount':
-        return $currencies[$item['currency']] .' '. $formatted_amount;
+        return $currencies[$item['currency']] .'&nbsp;'. $formatted_amount;
 
       case 'symbol_after_amount':
-        return $formatted_amount .' '. $symbols[$item['currency']];
+        return $formatted_amount .'&nbsp;'. $symbols[$item['currency']];
 
       case 'symbol_before_amount':
-        return $symbols[$item['currency']] .' '. $formatted_amount;
+        return $symbols[$item['currency']] .'&nbsp;'. $formatted_amount;
     }
   }
 }
