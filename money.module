@@ -86,13 +86,17 @@ function money_field_settings($op, $field) {
 
     case 'database columns':
       $columns['amount'] = array(
-        'type' => 'int',
+        'type' => 'bigint',
         'length' => 13,
         'not null' => TRUE,
         'default' => 0,
         'unsigned' => FALSE,
+        'sortable' => TRUE,
       );
-      $columns['currency'] = array('type' => 'varchar', 'length' => 3);
+      $columns['currency'] = array(
+        'type' => 'varchar',
+        'length' => 3,
+      );
       return $columns;
 
     case 'filters':
