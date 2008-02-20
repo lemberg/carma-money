@@ -111,6 +111,16 @@ function money_field_settings($op, $field) {
         'handler' => 'money_views_handler_filter_currency',
         'help' => t('This filter allows you to filter by currency (or multiple currencies).'),
       );
+      $filters['amount'] = array(
+        'name' => t('Filter by amount'),
+        'operator' => 'views_handler_operator_gtlt',
+        'value' => array(
+          '#type' => 'textfield',
+          '#size' => 5,
+        ),
+        'handler' => 'money_views_handler_filter_amount',
+        'help' => t('This filter allows you to filter by amount.'),
+      );
       return $filters;
   }
 }
@@ -326,24 +336,12 @@ function money_widget($op, &$node, $field, &$items) {
         break;
 
       case 'process form values':
-        $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
-        $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
-
         foreach ($items as $delta => $item) {
           if (empty($item['amount'])) {
             unset($items[$delta]['amount']);
           }
           else {
-            // Convert the entered amount to be compatible with PHP's number
-            // notation: a dot as a decimal separator, nothing as a digit
-            // group separator.
-            $converted_amount = str_replace(array($decimal_separator, $digit_group_separator), array('.', ''),  $item['amount']);
-
-            // Now convert the amount to make it storable as an integer.
-            // We are always working with a maximum of 2 decimals, this means
-            // that one unit in the database corresponds to 1/100th of a unit
-            // in reality (i.e. in forms and on display).
-            $items[$delta]['amount'] = $converted_amount * 100;
+            $items[$delta]['amount'] = _money_amount_to_integer($item['amount'], $field['decimal_separator'], $field['digit_group_separator']);
           }
         }
         break;
@@ -385,6 +383,20 @@ function money_token_list($type = 'all') {
 
 //----------------------------------------------------------------------------
 // Views handlers.
+
+/**
+ * Views filter handler: amount filter.
+ */
+function money_views_handler_filter_amount($op, $filter_data, $filter_info, &$query) {
+  $converted_amount = _money_amount_to_integer($filter_data['value'], $filter_info['content_field']['decimal_separator'], $filter_info['content_field']['digit_group_separator']);
+
+  $table = $filter_info['table'];
+  $table_field = $filter_info['content_db_info']['columns']['amount']['column'];
+  $operator = $filter_data['operator'];
+
+  $query->add_table($table);
+  $query->add_where("$table.$table_field $operator ('". $converted_amount ."')");
+}
 
 /**
  * Views filter handler: currency filter.
@@ -443,6 +455,33 @@ function _money_get_decimal_separator($decimal_separator = NULL) {
  */
 function _money_get_digit_group_separator($digit_group_separator = NULL) {
   return (!empty($digit_group_separator)) ? $digit_group_separator : ' ';
+}
+
+
+/**
+ * Convert the amount (a string entered by the user) to an integer.
+ *
+ * @param $amount
+ *   The amount to convert.
+ * @return
+ *   The corresponding integer.
+ */
+function _money_amount_to_integer($amount, $decimal_separator, $digit_group_separator) {
+  $decimal_separator = _money_get_decimal_separator($decimal_separator);
+  $digit_group_separator = _money_get_digit_group_separator($digit_group_separator);
+
+  // Convert the entered amount to be compatible with PHP's number
+  // notation: a dot as a decimal separator, nothing as a digit
+  // group separator.
+  $converted_amount = str_replace(array($decimal_separator, $digit_group_separator), array('.', ''),  $amount);
+
+  // Now convert the amount to make it storable as an integer.
+  // We are always working with a maximum of 2 decimals, this means
+  // that one unit in the database corresponds to 1/100th of a unit
+  // in reality (i.e. in forms and on display).
+  $converted_amount *= 100;
+
+  return $converted_amount;
 }
 
 
