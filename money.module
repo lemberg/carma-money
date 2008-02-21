@@ -58,9 +58,11 @@ function money_field_settings($op, $field) {
         '#type' => 'select',
         '#title' => t('Displayed decimals'),
         '#options' => array(0, 1, 2),
-        '#default_value' => (isset($field['displayed_decimals'])) ? $field['displayed_decimals'] : 2,
+        '#default_value' => _money_get_displayed_decimals($field['displayed_decimals']),
         '#description' => t(
-          'The number of decimals that will be displayed in the formatters.'
+          'The number of decimals that will be displayed in the formatters.
+          This does <em>not</em> affect the stored number of decimals, or the
+          number of decimals that can be entered, which will always be 2.'
         ),
       );
       $form['currency_list'] = array(
@@ -227,9 +229,11 @@ function money_field_formatter($field, $item, $formatter, $node) {
     return '';
   }
   else {
-    $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
+    $decimal_separator     = _money_get_decimal_separator($field['decimal_separator']);
     $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
-    $formatted_amount = check_plain(number_format($item['amount']/100, $field['displayed_decimals'], $decimal_separator, $digit_group_separator));
+    $displayed_decimals    = _money_get_displayed_decimals($field['displayed_decimals']);
+
+    $formatted_amount = check_plain(number_format($item['amount']/100, $displayed_decimals, $decimal_separator, $digit_group_separator));
 
     $currencies = currency_api_get_list();
     $symbols = currency_api_get_symbols();
@@ -275,15 +279,16 @@ function money_widget($op, &$node, $field, &$items) {
   if ($field['widget']['type'] == 'money_default') {
     switch ($op) {
       case 'prepare form values':
-        $decimal_separator = _money_get_decimal_separator($field['decimal_separator']);
+        $decimal_separator     = _money_get_decimal_separator($field['decimal_separator']);
         $digit_group_separator = _money_get_digit_group_separator($field['digit_group_separator']);
+        $displayed_decimals    = _money_get_displayed_decimals($field['displayed_decimals']);
       
         if (!count($items)) {
           $items[0] = array();
         }
         else {
           foreach ($items as $delta => $item) {
-            $items[$delta]['amount'] = check_plain(number_format($item['amount'] / 100, $field['displayed_decimals'], $decimal_separator, $digit_group_separator));
+            $items[$delta]['amount'] = check_plain(number_format($item['amount'] / 100, $displayed_decimals, $decimal_separator, $digit_group_separator));
           }
         }
         break;
@@ -482,6 +487,18 @@ function _money_get_digit_group_separator($digit_group_separator = NULL) {
   return (!empty($digit_group_separator)) ? $digit_group_separator : ' ';
 }
 
+/**
+ * Get the number of displayed decimals,  use the default if the variable is
+ * empty.
+ *
+ * @param $displayed_decimals
+ *   A variable that possibly contains the number of displayed decimals
+ * @return
+ *   A number of displayed decimals, either the variable or the default (2).
+ */
+function _money_get_displayed_decimals($displayed_decimals = NULL) {
+  return (!empty($displayed_decimals)) ? $displayed_decimals : 2;
+}
 
 /**
  * Convert the amount (a string entered by the user) to an integer.
