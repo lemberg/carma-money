@@ -1,5 +1,8 @@
 ; $Id$
 name = Money
 description = Allows the user to define a currency and an amount in custom content types.
-dependencies = content currency_api
+dependencies[] = content
+dependencies[] = currency_api
+dependencies[] = format_number
 package = CCK
+core = 6.x
