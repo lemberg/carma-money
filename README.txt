@@ -9,12 +9,12 @@
 OVERVIEW
 ========
 
-This module defines the "money" CCK field. It uses the Currency API, which
-is included in the Currency module, to get a list of valid currencies.
+This module defines the "money" CCK field. It uses the Currency API, which is
+included in the Currency module, to get a list of valid currencies.
 
-Decimal points and thousands separators are be formatted using the
-Format Number API module (http://drupal.org/project/format_number), where
-these options are configured from site and/or user settings.
+Decimal points and thousands separators are formatted using the Format Number
+API module (http://drupal.org/project/format_number), where these options are
+configured from site and/or user settings.
 
 
 REQUIREMENTS
