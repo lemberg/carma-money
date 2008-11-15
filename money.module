@@ -151,7 +151,7 @@ function money_elements() {
 }
 
 /**
- * Process an individual formatted_number element.
+ * Process an individual Money CCK field element.
  */
 function money_widget_process($element, $edit, $form_state, $form) {
   $field_name = $element['#field_name'];
