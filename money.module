@@ -1,31 +1,25 @@
 <?php
 // $Id$
 
-/**********************************************************************\
- WARNING: Module does not work yet for CCK 2 / Drupal 6.
- For further information, please see: http://drupal.org/node/322168
-\**********************************************************************/
-
-return; // Do nothng!
-
-/**********************************************************************\
-|**********************************************************************|
-\**********************************************************************/
-
-
 /**
  * @file
  * This module defines the "money" CCK field. It uses the Currency API, which
  * is included in the Currency module, to get a list of valid currencies.
- * 
- * Only amounts with 2 decimals can be used. Any decimal separator and any
- * digit group separator can be used, but it defaults to the comma and the dot
- * respectively, which is according to ISO 31-0. The separators can be changed
- * at any point, only integers are stored in the database.
+ * It also uses the Format Number API to display amounts with site/user defined
+ * decimal point and thousands separator.
  */
 
-//----------------------------------------------------------------------------
-// CCK hooks.
+/**
+ * Implementation of hook_theme().
+ */
+function money_theme() {
+  return array(
+    'money_widget' => array('arguments' => array('element' => NULL)),
+    'money_formatter_default' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
+    'money_formatter_nozeros' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
+    'money_formatter_unformatted' => array('arguments' => array('element' => NULL)),
+  );
+}
 
 /**
  * Implementation of hook_field_info().
@@ -41,77 +35,74 @@ function money_field_settings($op, $field) {
   switch ($op) {
     case 'form':
       $form = array();
-      $form['currency_list'] = array(
-        '#value' => theme('money_field_settings_currency_list', currency_api_get_list()),
+      $form['precision'] = array(
+        '#type' => 'select',
+        '#title' => t('Precision'),
+        '#options' => drupal_map_assoc(range(1, 20)),
+        '#default_value' => (is_numeric($field['precision']) && (int)$field['precision'] > 0 ? $field['precision'] : 10),
+        '#description' => t('The total number of digits to store in the database, including digits to the right of the decimal point.'),
+      );
+      $form['decimals'] = array(
+        '#type' => 'select',
+        '#title' => t('Decimals'),
+        '#options' => drupal_map_assoc(range(0, ($field['type'] == 'formatted_float' ? 20 : 4))),
+        '#default_value' => (is_numeric($field['decimals']) && (int)$field['decimals'] >= 0 ? $field['decimals'] : 2),
+        '#description' => t('The number of digits to the right of the decimal point.'),
       );
       $form['allowed_currencies'] = array(
-        '#type' => 'textarea',
-        '#rows' => 5,
-        '#title' => t('Currencies'),
-        '#description' => t('Enter the 3-letter ISO codes for the currencies that you want to allow, separated by commas. Leave empty to allow all currencies.'),
-        '#default_value' => (isset($field['allowed_currencies'])) ? $field['allowed_currencies'] : '',
+        '#type' => 'checkboxes',
+        '#title' => t('Available currencies'),
+        '#options' => currency_api_get_list(),
+        '#default_value' => (isset($field['allowed_currencies']) && is_array($field['allowed_currencies']) ? $field['allowed_currencies'] : array()),
+        '#description' => t('Choose the currencies that you want to allow. Do not select any currency to allow them all.'),
+        '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
       );
+      formatted_number_add_js();
+      drupal_add_css(drupal_get_path('module', 'money') .'/money.css');
       return $form;
 
-    case 'validate':
-      $valid_currencies = array_keys(currency_api_get_list());
-      $allowed_currencies = _money_parse_currencies($field['allowed_currencies']);
-      foreach ($allowed_currencies as $currency) {
-        if (!in_array($currency, $valid_currencies)) {
-          form_set_error('allowed_currencies', t('The currency %currency is not a valid currency.', array('%currency' => $currency)));
-        }
-      }
-      break;
-
     case 'save':
-      return array('allowed_currencies');
+      return array('precision', 'decimals', 'allowed_currencies');
 
     case 'database columns':
-      $columns['amount'] = array(
-        'type' => 'int',
-        'length' => 13,
-        'not null' => TRUE,
-        'default' => 0,
-        'unsigned' => FALSE,
-      );
-      $columns['currency'] = array('type' => 'varchar', 'length' => 3);
-      return $columns;
-
-    case 'filters':
+      $precision = (isset($field['precision']) ? $field['precision'] : 10);
+      $decimals = (isset($field['decimals']) ? $field['decimals'] : 2);
       return array(
-        'default' => array(
-          'name' => t('Default'),
-          'operator' => 'views_handler_operator_gtlt',
-        ),
-        'currency_order' => array(
-          'name' => t('Order by currency'),
-          'operator' => 'views_handler_operator_gtlt',
-        ),
+        'amount' => array('type' => 'numeric', 'precision' => $precision, 'scale' => $decimals, 'not null' => FALSE, 'sortable' => TRUE),
+        'currency' => array('type' => 'varchar', 'length' => 3, 'not null' => FALSE, 'sortable' => TRUE),
       );
   }
+}
+
+/**
+ * Implementation of hook_content_is_empty().
+ */
+function money_content_is_empty($item, $field) {
+  return !is_numeric($item['amount']);
 }
 
 /**
  * Implementation of hook_field().
  */
 function money_field($op, &$node, $field, &$items, $teaser, $page) {
-  switch ($op) {
-    case 'validate':
-      $allowed_currencies = _money_parse_currencies($field['allowed_currencies']);
-
-      if (is_array($items)) {
-        foreach ($items as $delta => $item) {
-          // Validate the currency.
-          if (!in_array($item['currency'], $allowed_currencies)) {
-            form_set_error($field['field_name'] .']['. $delta .'][currency', t('The currency %currency is not allowed.', array('%currency' => t($item['currency']))));
-          }
-          // Validate the amount.
-          if (!is_numeric($item['amount'])) {
-            form_set_error($field['field_name'] .']['. $delta .'][amount', t('You entered an invalid amount.'));
+  if ($op == 'validate') {
+    if (is_array($items)) {
+      foreach ($items as $delta => $item) {
+        $error_element = (isset($item['_error_element']) ? $item['_error_element'] : '');
+        if (is_array($item) && isset($item['_error_element'])) {
+          unset($item['_error_element']);
+        }
+        $errors = array_merge(
+          formatted_number_validate_field_value($field, $item['amount']),
+          money_validate_field_value($field, $item['amount'], $item['currency'])
+        );
+        if (!empty($errors)) {
+          foreach ($errors as $message) {
+            form_set_error($error_element, $message);
           }
         }
       }
-      break;
+    }
   }
 }
 
@@ -120,25 +111,10 @@ function money_field($op, &$node, $field, &$items, $teaser, $page) {
  */
 function money_field_formatter_info() {
   return array(
-    'default' => array(
-      'label' => t('Default'),
-      'field types' => array('money'),
-    ),
+    'default' => array('label' => t('Default'), 'field types' => array('money')),
+    'nozeros' => array('label' => t('Remove redundant zeros'), 'field types' => array('money')),
+    'unformatted' => array('label' => t('Unformatted'), 'field types' => array('money')),
   );
-}
-
-/**
- * Implementation of hook_field_formatter().
- */
-function money_field_formatter($field, $item, $formatter, $node) {
-  if (empty($item['amount'])) {
-    return '';
-  }
-  else {
-    $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-    $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
-    return check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
-  }
 }
 
 /**
@@ -146,254 +122,156 @@ function money_field_formatter($field, $item, $formatter, $node) {
  */
 function money_widget_info() {
   return array(
-    'money_default' => array(
-      'label' => 'Select list for the currency, textfield for the amount',
-      'field types' => array('money'),
-    ),
+    'money_widget' => array('label' => t('Currency and amount'), 'field types' => array('money')),
   );
-}
-
-/**
- * Implementation of hook_widget_settings().
- */
-function money_widget_settings($op, $widget) {
-  switch ($op) {
-    case 'form':
-      $form = array();
-      $form['decimal_separator'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Decimal separator'),
-        '#default_value' => _money_get_decimal_separator($widget['decimal_separator']),
-        '#size' => 5,
-        '#maxlength' => 255,
-        '#description' => t(
-          'Three decimal separators are used across the planet: the dot
-          (English-speaking countries), the comma (Europe) and the momayyez
-          (Arab world and Iran). ISO 31-0 specifies both the dot and the comma
-          as valid, but prefers the comma, this is also the default.'
-        ),
-      );
-      $form['digit_group_separator'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Digit group separator'),
-        '#default_value' => _money_get_digit_group_separator($widget['digit_group_separator']),
-        '#size' => 5,
-        '#maxlength' => 255,
-        '#description' => t(
-          'Three digit group separators are used across the planet: the comma
-          (English-speaking countries), the dot (Europe) and the space. ISO
-          31-0 specifies only the space as valid, this is also the default.'
-        ),
-      );     
-      return $form;
-    case 'save':
-      return array('decimal_separator', 'digit_group_separator');
-  }
 }
 
 /**
  * Implementation of hook_widget().
  */
-function money_widget($op, &$node, $field, &$items) {
-  if ($field['widget']['type'] == 'money_default') {
-    switch ($op) {
-      case 'prepare form values':
-        $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-        $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
-      
-        if (!count($items)) {
-          $items[0] = array();
-        }
-        else {
-          foreach ($items as $delta => $item) {
-            $items[$delta]['amount'] = check_plain(number_format($item['amount']/100, 2, $decimal_separator, $digit_group_separator));
-          }
-        }
-        break;
+function money_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  return array(
+    '#type' => $field['widget']['type'],
+    '#default_value' => (isset($items[$delta]) ? $items[$delta] : NULL),
+  );
+}
 
-      case 'form':
-        drupal_add_css(drupal_get_path('module', 'money') .'/money.css');
+/**
+ * Implementation of FAPI hook_elements().
+ */
+function money_elements() {
+  return array(
+    'money_widget' => array(
+      '#input' => TRUE,
+      '#columns' => array('amount', 'currency'),
+      '#delta' => 0,
+      '#process' => array('money_widget_process'),
+    ),
+  );
+}
 
-        $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-        $allowed_currencies = _money_parse_currencies($field['allowed_currencies']);
+/**
+ * Process an individual formatted_number element.
+ */
+function money_widget_process($element, $edit, $form_state, $form) {
+  $field_name = $element['#field_name'];
+  $field = $form['#field_info'][$field_name];
 
-        // Variables to be used in the "currency" form item.
-        $currency_options = array_combine($allowed_currencies, $allowed_currencies);
+  // Amount reuses the formatted_number element process.
+  $element = formatted_number_widget_process($element, $edit, $form_state, $form);
+  $field_key = $element['#columns'][0];
+  $element[$field_key]['#required'] = FALSE;
+  unset($element[$field_key]['#title'], $element[$field_key]['#description']);
 
-        // Variables to be used in the "amount" form item.
-        if (isset($field['widget']['default_value'][0]['amount'])) {
-          $amount_default = check_plain(number_format($field['widget']['default_value'][0]['amount']/100, 2, $decimal_separator, $digit_group_separator));
-        }
-        else {
-          $amount_default = check_plain(number_format("0{$decimal_separator}00"/100, 2, $decimal_separator, $digit_group_separator));
-        }
-        $amount_description = t(
-          'Use "@decimal_separator" as the decimal separator and (optionally)
-          "@digit_group_separator" as the digit group separator. You can
-          only enter two decimals.',
-          array(
-            '@decimal_separator' => $field['widget']['decimal_separator'],
-            '@digit_group_separator' => $field['widget']['digit_group_separator'],
-          )
-        );
+  // Currency uses a select list element.
+  $field_key = $element['#columns'][1];
+  $allowed_currencies = money_get_allowed_currencies($field);
+  if (!$element['#required']) {
+    $allowed_currencies = array('' => t('-- Select currency --')) + $allowed_currencies;
+  }
+  $element[$field_key] = array(
+    '#type' => 'select',
+    '#default_value' => (isset($element['#value'][$field_key]) ? $element['#value'][$field_key] : array()),
+    '#options' => $allowed_currencies,
+    // The following values were set by the content module and need
+    // to be passed down to the nested element.
+    '#required' => $element['#required'],
+    '#field_name' => $element['#field_name'],
+    '#type_name' => $element['#type_name'],
+    '#delta' => $element['#delta'],
+    '#columns' => $element['#columns'],
+  );
 
-        // If this field is configured as a multiple value field, make sure
-        // that there are at least 3 form items.
-        while ($field['multiple'] && count($items) < 3) {
-          $items[] = array();
-        }
+  return $element;
+}
 
-        // Create the prefix in which we'll store first the label, then a
-        // container div in which we'll put the actual form elements.
-        $prefix = '<div class="form-item">';
-        $prefix .= '<label>'. t($field['widget']['label']);
-        if (!empty($field['required'])) {
-          $prefix .= '<span class="form-required" title="'. t('This field is required.') .'">*</span>';
-        }
-        $prefix .= '</label>';
-        
-        // Actual form creation begins here.
-        $form = array();
-        $form[$field['field_name']]['#tree'] = TRUE;
-        $form[$field['field_name']]['#prefix'] = $prefix;
-        $form[$field['field_name']]['#type'] = ($field['multiple']) ? 'fieldset' : 'markup';
-        $form[$field['field_name']]['#suffix'] = '</div>';
-
-        foreach ($items as $delta => $item) {      
-          // These are the actual form items for each money field.
-          $form[$field['field_name']][$delta]['#tree'] = TRUE;
-          $form[$field['field_name']][$delta]['currency'] = array(
-            '#type' => 'select',
-            '#options' => $currency_options,
-            '#default_value' => isset($item['currency']) ? $item['currency'] : $field['widget']['default_value'][0]['currency'],
-            '#attributes' => array('class' => 'money-field money-field-currency'),
-            '#prefix' => '<div class="container-inline money-field-form-items">',
-          );
-          $form[$field['field_name']][$delta]['amount'] = array(
-            '#type' => 'textfield',
-            '#size' => 20,
-            '#maxlength' => 25,
-            '#default_value' => isset($item['amount']) ? $item['amount'] : $amount_default,
-            '#attributes' => array('class' => 'money-field money-field-amount'),
-            '#description' => ($delta == end(array_keys($items))) ? $amount_description : NULL, 
-            '#suffix' => '</div>',
-          );
-        }
-
-        return $form;
-      
-      case 'validate':
-        // Generate the regular expression to validate the entered amounts.
-        $decimal_separator = preg_quote(_money_get_decimal_separator($field['widget']['decimal_separator']));
-        $digit_group_separator = preg_quote(_money_get_digit_group_separator($field['widget']['digit_group_separator']));
-        $regexp = "/^-?(((\d{1,3}". $digit_group_separator .")?(\d{3}". $digit_group_separator .")*(\d{3}){1})|\d+)(". $decimal_separator ."\d{1,2})?$/";
-
-        // Make sure the amount is entered using the correct format.
-        foreach ($items as $delta => $item) {
-          if (!empty($item['amount']) && !preg_match($regexp, $item['amount'])) {
-            form_set_error($field['field_name'] .']['. $delta .'][amount', t('The amount is formatted invalidly.')); 
-          }
-        }
-        break;
-
-      case 'process form values':
-        $decimal_separator = _money_get_decimal_separator($field['widget']['decimal_separator']);
-        $digit_group_separator = _money_get_digit_group_separator($field['widget']['digit_group_separator']);
-
-        foreach ($items as $delta => $item) {
-          if (empty($item['amount'])) {
-            unset($items[$delta]['amount']);
-          }
-          else {
-            // Convert the entered amount to be compatible with PHP's number
-            // notation: a dot as a decimal separator, nothing as a digit
-            // group separator.
-            $converted_amount = str_replace(array($decimal_separator, $digit_group_separator), array('.', ''),  $item['amount']);
-
-            // Now convert the amount to make it storable as an integer.
-            // We are always working with a maximum of 2 decimals, this means
-            // that one unit in the database corresponds to 1/100th of a unit
-            // in reality (i.e. in forms and on display).
-            $items[$delta]['amount'] = $converted_amount * 100;
-          }
-        }
-        break;
+/**
+ * Helper function to validate a money field.
+ *
+ * Validates the currency and its relation to the amount.
+ * Both fields must be specified, or none.
+ *
+ * @param array $field
+ *   The field array.
+ * @param number $amount
+ *   The number that should be validated.
+ * @param number $currency
+ *   The currency that should be validated.
+ * @return array
+ *   An array with error messages or empty if value is correct.
+ */
+function money_validate_field_value($field, $amount, $currency) {
+  static $allowed_currencies;
+  if (!isset($allowed_currencies)) {
+    $allowed_currencies = money_get_allowed_currencies($field);
+  }
+  $errors = array();
+  if (empty($currency)) {
+    if ($field['required']) {
+      $errors[] = t('%name: Currency is required.', array('%name' => t($field['widget']['label'])));
+    }
+    else if (is_numeric($amount)) {
+      $errors[] = t('%name: Currency is required when an amount is specified.', array('%name' => t($field['widget']['label'])));
     }
   }
+  else {
+    if (!isset($allowed_currencies[$currency])) {
+      if (!$field['required']) {
+        $errors[] = t('%name: The currency %currency is not allowed.', array('%name' => t($field['widget']['label']), '%currency' => $currency));
+      }
+    }
+    else if (!is_numeric($amount)) {
+      $errors[] = t('%name: A valid amount is required when a currency is specified.', array('%name' => t($field['widget']['label'])));
+    }
+  }
+  return $errors;
 }
 
-
-//----------------------------------------------------------------------------
-// Private functions.
-
 /**
- * Parse currency codes from a comma-separated list.
- *
- * @param $currencies_string
- *   A string containing a list of currency codes, separated by commas.
- * @return
- *   An array of currency code.
+ * Get list of allowed currencies for the given field.
  */
-function _money_parse_currencies($currencies_string) {
-  return explode(',', str_replace(' ', '', trim($currencies_string)));
+function money_get_allowed_currencies($field) {
+  if (empty($field['allowed_currencies']) || !is_array($field['allowed_currencies'])) {
+    return currency_api_get_list();
+  }
+  return array_intersect_key(currency_api_get_list(), array_filter($field['allowed_currencies']));
 }
 
 /**
- * Get the decimal separator from a variable, use the default if the variable
- * is empty.
+ * Display a CCK Money field (widget).
  *
- * @param $decimal_separator
- *   A variable that possibly contains a decimal separator.
- * @return
- *   A decimal separator, either the variable or the default (a comma).
- */
-function _money_get_decimal_separator($decimal_separator = NULL) {
-  return (!empty($decimal_separator)) ? $decimal_separator : ',';
-}
-
-/**
- * Get the digit group separator from a variable, use the default if the
- * variable is empty.
- *
- * @param $digit_group_separator
- *   A variable that possibly contains a digit group separator.
- * @return
- *   A digit group separator, either the variable or the default (a space).
- */
-function _money_get_digit_group_separator($digit_group_separator = NULL) {
-  return (!empty($digit_group_separator)) ? $digit_group_separator : ' ';
-}
-
-
-//----------------------------------------------------------------------------
-// Theming functions.
-
-/**
  * @ingroup themeable
- * @{
  */
-
-/**
- * Format the list of currencies that is displayed in the money field settings
- * form.
- *
- * @param $currencies
- *   An array of currencies, where the keys are the currency codes and the
- *   values are the full names, with bracketed currency codes appended. (An
- *   array returned by currency_api_get_list()).
- * @return
- *   A rendered list of currencies.
- */
-function theme_money_field_settings_currency_list($currencies) {
-  $output = '';
-
-  $output .= '<div id="money-field-settings-currency-list">';
-  $output .= theme_item_list(array_values($currencies), t('Available currencies'));
-  $output .= '</div>';
-
-  return $output;
+function theme_money_widget($element) {
+  formatted_number_add_js();
+  $children = '<div class="container-inline">'. $element['#children'] .'</div>';
+  return theme('form_element', $element, $children);
 }
 
 /**
- * @} End of "ingroup themeable".
+ * Display a CCK Money field (unformatted).
+ *
+ * @ingroup themeable
  */
+function theme_money_formatter_unformatted($element) {
+  // raw number + space + currency code.
+  return $element['#item']['amount'] .' '. $element['#item']['currency'];
+}
+
+/**
+ * Display a CCK Money field (formatted).
+ *
+ * @ingroup themeable
+ */
+function theme_money_formatter_generic($element) {
+  $amount = $element['#item']['amount'];
+  if (!is_numeric($amount)) {
+    return '';
+  }
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  $decimals = ($element['#formatter'] == 'nozeros' ? -1 : (isset($field['decimals']) ? (int)$field['decimals'] : 0));
+  $formatted_number = format_number($amount, $decimals);
+
+  // formatted number + no-break space + currency code.
+  return $formatted_number ."\xC2\xA0". $element['#item']['currency'];
+}

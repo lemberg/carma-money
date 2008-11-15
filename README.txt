@@ -23,10 +23,13 @@ REQUIREMENTS
 - CCK (http://drupal.org/project/cck)
 - Currency API (http://drupal.org/project/currency)
 - Format Number API (http://drupal.org/project/format_number)
+- Formatted Number CCK (http://drupal.org/project/formatted_number)
 
 
 INSTALLATION
 ============
+
+- Please, make sure all required modules are installed first.
 
 - Copy all contents of this package to your modules directory preserving
   subdirectory structure.
