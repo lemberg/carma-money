@@ -3,10 +3,7 @@
 
 /**
  * @file
- * This module defines the "money" CCK field. It uses the Currency API, which
- * is included in the Currency module, to get a list of valid currencies.
- * It also uses the Format Number API to display amounts with site/user defined
- * decimal point and thousands separator.
+ * This module defines the Money CCK field.
  */
 
 /**
@@ -18,6 +15,7 @@ function money_theme() {
     'money_formatter_default' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_nozeros' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_unformatted' => array('arguments' => array('element' => NULL)),
+    'money_currency' => array('arguments' => array('currency' => NULL, 'mode' => NULL)),
   );
 }
 
@@ -45,24 +43,15 @@ function money_field_settings($op, $field) {
       $form['decimals'] = array(
         '#type' => 'select',
         '#title' => t('Decimals'),
-        '#options' => drupal_map_assoc(range(0, ($field['type'] == 'formatted_float' ? 20 : 4))),
+        '#options' => drupal_map_assoc(range(0, 4)),
         '#default_value' => (is_numeric($field['decimals']) && (int)$field['decimals'] >= 0 ? $field['decimals'] : 2),
         '#description' => t('The number of digits to the right of the decimal point.'),
       );
-      $form['allowed_currencies'] = array(
-        '#type' => 'checkboxes',
-        '#title' => t('Available currencies'),
-        '#options' => currency_api_get_list(),
-        '#default_value' => (isset($field['allowed_currencies']) && is_array($field['allowed_currencies']) ? $field['allowed_currencies'] : array()),
-        '#description' => t('Choose the currencies that you want to allow. Do not select any currency to allow them all.'),
-        '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
-      );
       formatted_number_add_js();
-      drupal_add_css(drupal_get_path('module', 'money') .'/money.css');
       return $form;
 
     case 'save':
-      return array('precision', 'decimals', 'allowed_currencies');
+      return array('precision', 'decimals');
 
     case 'database columns':
       $precision = (isset($field['precision']) ? $field['precision'] : 10);
@@ -122,8 +111,53 @@ function money_field_formatter_info() {
  */
 function money_widget_info() {
   return array(
-    'money_widget' => array('label' => t('Currency and amount'), 'field types' => array('money')),
+    'money_widget' => array('label' => t('Amount and currency'), 'field types' => array('money')),
   );
+}
+
+/**
+ * Implementation of hook_widget_settings().
+ */
+function money_widget_settings($op, $widget) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+      $options = array('code' => t('Currency code'), 'name' => t('Currency name'));
+      $form['currency_select_mode'] = array(
+        '#type' => 'radios',
+        '#title' => t('Currency selection mode'),
+        '#options' => $options,
+        '#default_value' => (isset($widget['currency_select_mode']) && isset($options[$widget['currency_select_mode']]) ? $widget['currency_select_mode'] : 'name'),
+        '#required' => TRUE,
+        '#description' => t('Choose the format of the label that will be displayed for options of the currency select list.'),
+      );
+      $options = array('code' => t('Currency code'), 'symbol' => t('Currency symbol'));
+      $form['currency_display_mode'] = array(
+        '#type' => 'radios',
+        '#title' => t('Currency display mode'),
+        '#options' => $options,
+        '#default_value' => (isset($widget['currency_display_mode']) && isset($options[$widget['currency_display_mode']]) ? $widget['currency_display_mode'] : 'code'),
+        '#required' => TRUE,
+        '#description' => t('Choose the format that will be used to display the currency when a node is rendered.'),
+      );
+      $form['currencies'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Available currencies'),
+        '#collapsible' => TRUE, '#collapsed' => TRUE,
+        '#description' => t('Choose the currencies that you want to enable for this field. Do not select any currency to enable them all.'),
+      );
+      $form['currencies']['allowed_currencies'] = array(
+        '#type' => 'checkboxes',
+        '#options' => currency_api_get_list(),
+        '#default_value' => (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies']) ? $widget['allowed_currencies'] : array()),
+        '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
+      );
+      drupal_add_css(drupal_get_path('module', 'money') .'/money.css');
+      return $form;
+
+    case 'save':
+      return array('currency_select_mode', 'currency_display_mode', 'allowed_currencies');
+  }
 }
 
 /**
@@ -157,22 +191,20 @@ function money_widget_process($element, $edit, $form_state, $form) {
   $field_name = $element['#field_name'];
   $field = $form['#field_info'][$field_name];
 
-  // Amount reuses the formatted_number element process.
-  $element = formatted_number_widget_process($element, $edit, $form_state, $form);
+  // Amount reuses the formatted_number element.
   $field_key = $element['#columns'][0];
+  $element = formatted_number_widget_process($element, $edit, $form_state, $form);
+  // Field requirement validation is done in hook_field().
   $element[$field_key]['#required'] = FALSE;
+  // Do not use title/description of the formatted number.
   unset($element[$field_key]['#title'], $element[$field_key]['#description']);
 
   // Currency uses a select list element.
   $field_key = $element['#columns'][1];
-  $allowed_currencies = money_get_allowed_currencies($field);
-  if (!$element['#required']) {
-    $allowed_currencies = array('' => t('-- Select currency --')) + $allowed_currencies;
-  }
   $element[$field_key] = array(
     '#type' => 'select',
     '#default_value' => (isset($element['#value'][$field_key]) ? $element['#value'][$field_key] : array()),
-    '#options' => $allowed_currencies,
+    '#options' => money_get_widget_currencies($field),
     // The following values were set by the content module and need
     // to be passed down to the nested element.
     '#required' => $element['#required'],
@@ -188,7 +220,7 @@ function money_widget_process($element, $edit, $form_state, $form) {
 /**
  * Helper function to validate a money field.
  *
- * Validates the currency and its relation to the amount.
+ * Validates the currency and its relation with the amount.
  * Both fields must be specified, or none.
  *
  * @param array $field
@@ -201,40 +233,59 @@ function money_widget_process($element, $edit, $form_state, $form) {
  *   An array with error messages or empty if value is correct.
  */
 function money_validate_field_value($field, $amount, $currency) {
-  static $allowed_currencies;
-  if (!isset($allowed_currencies)) {
-    $allowed_currencies = money_get_allowed_currencies($field);
-  }
+  $widget_label = t($field['widget']['label']);
   $errors = array();
   if (empty($currency)) {
     if ($field['required']) {
-      $errors[] = t('%name: Currency is required.', array('%name' => t($field['widget']['label'])));
+      $errors[] = t('%name: Currency is required.', array('%name' => $widget_label));
     }
     else if (is_numeric($amount)) {
-      $errors[] = t('%name: Currency is required when an amount is specified.', array('%name' => t($field['widget']['label'])));
+      $errors[] = t('%name: Currency is required when an amount is specified.', array('%name' => $widget_label));
     }
   }
   else {
+    $allowed_currencies = (isset($field['widget']['allowed_currencies']) ? array_filter($field['widget']['allowed_currencies']) : array());
     if (!isset($allowed_currencies[$currency])) {
       if (!$field['required']) {
-        $errors[] = t('%name: The currency %currency is not allowed.', array('%name' => t($field['widget']['label']), '%currency' => $currency));
+        $errors[] = t('%name: The currency %currency is not allowed.', array('%name' => $widget_label, '%currency' => $currency));
       }
     }
     else if (!is_numeric($amount)) {
-      $errors[] = t('%name: A valid amount is required when a currency is specified.', array('%name' => t($field['widget']['label'])));
+      $errors[] = t('%name: A valid amount is required when a currency is specified.', array('%name' => $widget_label));
     }
   }
   return $errors;
 }
 
 /**
- * Get list of allowed currencies for the given field.
+ * Build currency options for the given field/widget.
  */
-function money_get_allowed_currencies($field) {
-  if (empty($field['allowed_currencies']) || !is_array($field['allowed_currencies'])) {
-    return currency_api_get_list();
+function money_get_widget_currencies($field) {
+  // Currently implemented modes: code, name. See money_widget_settings().
+  $mode = $field['widget']['currency_select_mode'];
+
+  if (empty($field['widget']['allowed_currencies']) || !is_array($field['widget']['allowed_currencies'])) {
+    $allowed_currencies = currency_api_get_list();
+    if ($mode == 'code') {
+      $allowed_currencies = array_keys($allowed_currencies);
+      $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
+    }
   }
-  return array_intersect_key(currency_api_get_list(), array_filter($field['allowed_currencies']));
+  else {
+    if ($mode == 'code') {
+      $allowed_currencies = array_filter($field['widget']['allowed_currencies']);
+    }
+    else {
+      $allowed_currencies = array_intersect_key(currency_api_get_list(), array_filter($field['widget']['allowed_currencies']));
+    }
+  }
+
+  // When field is not required, an additional empty currency is pushed on top of the resulting list.
+  if (!$field['required']) {
+    $allowed_currencies = array('' => ($mode == 'code' ? '---' : t('-- Select currency --'))) + $allowed_currencies;
+  }
+
+  return $allowed_currencies;
 }
 
 /**
@@ -254,8 +305,15 @@ function theme_money_widget($element) {
  * @ingroup themeable
  */
 function theme_money_formatter_unformatted($element) {
-  // raw number + space + currency code.
-  return $element['#item']['amount'] .' '. $element['#item']['currency'];
+  $amount = $element['#item']['amount'];
+  if (!is_numeric($amount)) {
+    return '';
+  }
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  $currency = theme('money_currency', $element['#item']['currency'], $field['widget']['currency_display_mode']);
+
+  // raw number + space + currency.
+  return $amount .' '. $currency;
 }
 
 /**
@@ -271,7 +329,26 @@ function theme_money_formatter_generic($element) {
   $field = content_fields($element['#field_name'], $element['#type_name']);
   $decimals = ($element['#formatter'] == 'nozeros' ? -1 : (isset($field['decimals']) ? (int)$field['decimals'] : 0));
   $formatted_number = format_number($amount, $decimals);
+  $currency = theme('money_currency', $element['#item']['currency'], $field['widget']['currency_display_mode']);
 
-  // formatted number + no-break space + currency code.
-  return $formatted_number ."\xC2\xA0". $element['#item']['currency'];
+  // formatted number + no-break space + currency.
+  return $formatted_number ."\xC2\xA0". $currency;
+}
+
+/**
+ * Display a currency code or symbol.
+ *
+ * @ingroup themeable
+ */
+function theme_money_currency($currency, $mode = 'code') {
+  static $currency_symbols;
+  if ($mode == 'symbol') {
+    if (!isset($currency_symbols)) {
+      $currency_symbols = currency_api_get_symbols();
+    }
+    if (isset($currency_symbols[$currency])) {
+      $currency = $currency_symbols[$currency];
+    }
+  }
+  return $currency;
 }
