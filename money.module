@@ -528,7 +528,7 @@ function _money_amount_to_integer($amount, $decimal_separator, $digit_group_sepa
 
   // PHP's conversion from floats to ints is choppy at best, so make sure it
   // gets converted properly.
-  $converted_amount = (int) ($converted_amount + 0.01);
+  $converted_amount = ($converted_amount < 0) ? ((int) ($converted_amount - 0.01)) : ((int) ($converted_amount + 0.01));
 
   return $converted_amount;
 }
