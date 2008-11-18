@@ -497,7 +497,7 @@ function _money_get_digit_group_separator($digit_group_separator = NULL) {
  *   A number of displayed decimals, either the variable or the default (2).
  */
 function _money_get_displayed_decimals($displayed_decimals = NULL) {
-  return (!empty($displayed_decimals)) ? $displayed_decimals : 2;
+  return (isset($displayed_decimals)) ? $displayed_decimals : 2;
 }
 
 /**
