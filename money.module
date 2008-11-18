@@ -341,6 +341,9 @@ function money_widget($op, &$node, $field, &$items) {
         $form[$field['field_name']]['#type'] = ($field['multiple']) ? 'fieldset' : 'markup';
         $form[$field['field_name']]['#suffix'] = '</div>';
 
+        $description = $amount_description;
+        $description .= (!empty($field['widget']['description'])) ? '<br />'. $field['widget']['description'] : '';
+
         foreach ($items as $delta => $item) {      
           // These are the actual form items for each money field.
           $form[$field['field_name']][$delta]['#tree'] = TRUE;
@@ -357,7 +360,7 @@ function money_widget($op, &$node, $field, &$items) {
             '#maxlength' => 25,
             '#default_value' => isset($item['amount']) ? $item['amount'] : $amount_default,
             '#attributes' => array('class' => 'money-field money-field-amount'),
-            '#description' => ($delta == end(array_keys($items))) ? $amount_description : NULL, 
+            '#description' => ($delta == end(array_keys($items))) ? $description : NULL, 
             '#suffix' => '</div>',
           );
         }
