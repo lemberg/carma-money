@@ -26,6 +26,12 @@ REQUIREMENTS
 - Formatted Number CCK (http://drupal.org/project/formatted_number)
 
 
+RECOMMENDED
+===========
+
+- Checkall (http://drupal.org/project/checkall)
+
+
 INSTALLATION
 ============
 

@@ -5,6 +5,5 @@ dependencies[] = content
 dependencies[] = currency_api
 dependencies[] = format_number
 dependencies[] = formatted_number
-dependencies[] = checkall
 package = CCK
 core = 6.x
