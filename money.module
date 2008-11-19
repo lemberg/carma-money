@@ -150,6 +150,7 @@ function money_widget_settings($op, $widget) {
         '#type' => 'checkboxes',
         '#options' => currency_api_get_list(),
         '#default_value' => (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies']) ? $widget['allowed_currencies'] : array()),
+        '#checkall' => TRUE,
         '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
       );
       drupal_add_css(drupal_get_path('module', 'money') .'/money.css');
