@@ -1,0 +1,11 @@
+; $Id$
+name = Money CCK field Conversion Dialog
+description = "Provides a 'Click to convert!' addon for Money CCK fields."
+dependencies[] = content
+dependencies[] = currency_api
+dependencies[] = format_number
+dependencies[] = formatted_number
+dependencies[] = money
+dependencies[] = jquery_ui
+package = CCK
+core = 6.x

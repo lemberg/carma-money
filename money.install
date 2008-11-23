@@ -76,3 +76,31 @@ function money_disable() {
   drupal_load('module', 'content');
   content_notify('disable', 'money');
 }
+
+/**
+ * Update all money fields to reflect the new Views integration feature.
+ *
+ * References:
+ * http://drupal.org/node/131953 (CCK feature request)
+ * http://drupal.org/node/335546 (Money CCK field task)
+ */
+function money_update_6000() {
+  if ($abort = content_check_update('money')) {
+    return $abort;
+  }
+
+  $ret = array();
+  $result = db_query("SELECT field_name, db_columns FROM {content_node_field} WHERE type = 'money'");
+  while ($field = db_fetch_object($result)) {
+    $db_columns = unserialize($field->db_columns);
+    if (empty($db_columns['amount']['views'])) {
+      $db_columns['amount']['views'] = TRUE;
+      $db_columns['currency']['views'] = TRUE;
+      $db_columns = serialize($db_columns);
+      $ret[] = update_sql("UPDATE {content_node_field} SET db_columns = '" . db_escape_string($db_columns) . "' WHERE field_name = '" . db_escape_string($field->field_name) . "'");
+    }
+  }
+
+  content_clear_type_cache();
+  return $ret;
+}

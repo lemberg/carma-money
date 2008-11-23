@@ -57,8 +57,8 @@ function money_field_settings($op, $field) {
       $precision = (isset($field['precision']) ? $field['precision'] : 10);
       $decimals = (isset($field['decimals']) ? $field['decimals'] : 2);
       return array(
-        'amount' => array('type' => 'numeric', 'precision' => $precision, 'scale' => $decimals, 'not null' => FALSE, 'sortable' => TRUE),
-        'currency' => array('type' => 'varchar', 'length' => 3, 'not null' => FALSE, 'sortable' => TRUE),
+        'amount' => array('type' => 'numeric', 'precision' => $precision, 'scale' => $decimals, 'not null' => FALSE, 'sortable' => TRUE, 'views' => TRUE),
+        'currency' => array('type' => 'varchar', 'length' => 3, 'not null' => FALSE, 'sortable' => TRUE, 'views' => TRUE),
       );
   }
 }
