@@ -15,7 +15,7 @@ Drupal.behaviors.moneyConversionDialog = function (context) {
 };
 
 Drupal.moneyConversionDialog = function (moneyItem, acdb) {
-  // amount, currency, decimals, currency_display_mode.
+  // amount, decimals, currency_display_mode, currency.
   var field_settings = $(moneyItem).attr("class").replace(/^.*\[(.*?)\].*$/, "$1");
 
   $(moneyItem).addClass('money-item-processed').append('&nbsp;').append(
@@ -29,9 +29,7 @@ Drupal.moneyConversionDialog = function (moneyItem, acdb) {
         overlay: {opacity: 0.5, background: '#000000'},
         title: Drupal.t('Currency conversion | !amount', {'!amount': $(moneyItem).text()}),
         dialogClass: 'money-conversion-wrapper',
-        close: function () {
-          acdb.cancel();
-        },
+        close: function () { acdb.cancel(); },
         width: '450px', height: '200px',
         resizable: false,
         modal: true
@@ -41,20 +39,6 @@ Drupal.moneyConversionDialog = function (moneyItem, acdb) {
       });
     })
   );
-};
-
-Drupal.theme.prototype.moneyConversionDialog = function () {
-  return '<div id="money-conversion-dialog"></div>';
-};
-
-Drupal.theme.prototype.moneyConversionForm = function () {
-  var output = '<form id="money-conversion-form">';
-  output += '<label for="money-conversion-select" id="money-conversion-label">' + Drupal.t('Convert to:') + '</label>';
-  output += '<select id="money-conversion-select"></select>';
-  output += '</form>';
-  output += '<div id="money-conversion-result">' + Drupal.theme('moneyConversionLoading') + '</div>';
-  output += '<div id="money-conversion-error"></div>';
-  return output;
 };
 
 Drupal.moneyConversionResultHandler = function () {
@@ -79,6 +63,20 @@ Drupal.moneyConversionResultHandler = function () {
       $('#money-conversion-error').html('');
     }
   };
+};
+
+Drupal.theme.prototype.moneyConversionDialog = function () {
+  return '<div id="money-conversion-dialog"></div>';
+};
+
+Drupal.theme.prototype.moneyConversionForm = function () {
+  var output = '<form id="money-conversion-form">';
+  output += '<label for="money-conversion-select" id="money-conversion-label">' + Drupal.t('Convert to:') + '</label>';
+  output += '<select id="money-conversion-select"></select>';
+  output += '</form>';
+  output += '<div id="money-conversion-result">' + Drupal.theme('moneyConversionLoading') + '</div>';
+  output += '<div id="money-conversion-error"></div>';
+  return output;
 };
 
 Drupal.theme.prototype.moneyConversionOptions = function (currency_list) {
