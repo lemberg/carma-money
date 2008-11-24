@@ -85,9 +85,12 @@ function money_disable() {
  * http://drupal.org/node/335546 (Money CCK field task)
  */
 function money_update_6000() {
+  drupal_load('module', 'content');
+
   if ($abort = content_check_update('money')) {
     return $abort;
   }
+
   $ret = array();
   $result = db_query("SELECT field_name, db_columns FROM {content_node_field} WHERE type = 'money'");
   while ($field = db_fetch_object($result)) {
@@ -95,9 +98,16 @@ function money_update_6000() {
     if (empty($db_columns['amount']['views'])) {
       $db_columns['amount']['views'] = TRUE;
       $db_columns['currency']['views'] = TRUE;
-      db_query("UPDATE {content_node_field} SET db_columns = '%s' WHERE field_name = '%s'", serialize($db_columns), $field->field_name);
+      $success = db_query("UPDATE {content_node_field} SET db_columns = '%s' WHERE field_name = '%s'", serialize($db_columns), $field->field_name);
+      $ret[] = array(
+        'success' => $success !== FALSE,
+        'query' => strtr('Updating definition of the Money CCK field: %field-name.', array('%field-name' => $field->field_name)),
+      );
     }
   }
-  content_clear_type_cache();
+
+  if (!empty($ret)) {
+    content_clear_type_cache();
+  }
   return $ret;
 }
