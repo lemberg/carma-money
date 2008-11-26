@@ -129,6 +129,9 @@ function money_conversion_dialog_add_js() {
 function theme_money_conversion_dialog($element) {
   // Use the default money formatter.
   $output = theme('money_formatter_default', $element);
+  if (empty($output)) {
+    return $output;
+  }
 
   // Check user permission to use money conversion dialog.
   if (!user_access('use money conversion dialog')) {
