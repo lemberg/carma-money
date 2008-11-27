@@ -23,6 +23,7 @@ function money_conversion_dialog_menu() {
     'access arguments' => array('use money conversion dialog'),
     'page callback' => 'money_conversion_dialog_ajax_callback',
     'page arguments' => array(1, 2), 
+    'type' => MENU_CALLBACK,
   );
   return $items;
 }
