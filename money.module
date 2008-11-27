@@ -265,7 +265,16 @@ function money_get_widget_currencies($field) {
   // Currently implemented modes: code, name. See money_widget_settings().
   $mode = $field['widget']['currency_select_mode'];
 
-  if (empty($field['widget']['allowed_currencies']) || !is_array($field['widget']['allowed_currencies'])) {
+  // Make sure we have an array of allowed currencies.
+  if (isset($field['widget']['allowed_currencies']) && is_array($field['widget']['allowed_currencies'])) {
+    $allowed_currencies = array_filter($field['widget']['allowed_currencies']);
+  }
+  else {
+    $allowed_currencies = array();
+  }
+
+  // When no currency has been specified in widget settings we allow them all.
+  if (empty($allowed_currencies)) {
     $allowed_currencies = currency_api_get_list();
     if ($mode == 'code') {
       $allowed_currencies = array_keys($allowed_currencies);
@@ -273,11 +282,8 @@ function money_get_widget_currencies($field) {
     }
   }
   else {
-    if ($mode == 'code') {
-      $allowed_currencies = array_filter($field['widget']['allowed_currencies']);
-    }
-    else {
-      $allowed_currencies = array_intersect_key(currency_api_get_list(), array_filter($field['widget']['allowed_currencies']));
+    if ($mode == 'name') {
+      $allowed_currencies = array_intersect_key(currency_api_get_list(), $allowed_currencies);
     }
   }
 
