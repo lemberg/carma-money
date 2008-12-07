@@ -7,6 +7,15 @@
  */
 
 /**
+ * Implementation of hook_init().
+ */
+function money_init() {
+  if (module_exists('diff')) {
+    module_load_include('inc', 'money', 'includes/money.diff');
+  }
+}
+
+/**
  * Implementation of hook_theme().
  */
 function money_theme() {
@@ -312,7 +321,7 @@ function theme_money_widget($element) {
  * @ingroup themeable
  */
 function theme_money_formatter_unformatted($element) {
-  $amount = $element['#item']['amount'];
+  $amount = isset($element['#item']['amount']) ? $element['#item']['amount'] : NULL;
   if (!is_numeric($amount)) {
     return '';
   }
@@ -329,7 +338,7 @@ function theme_money_formatter_unformatted($element) {
  * @ingroup themeable
  */
 function theme_money_formatter_generic($element) {
-  $amount = $element['#item']['amount'];
+  $amount = isset($element['#item']['amount']) ? $element['#item']['amount'] : NULL;
   if (!is_numeric($amount)) {
     return '';
   }
