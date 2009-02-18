@@ -254,13 +254,26 @@ function money_validate_field_value($field, $amount, $currency) {
     }
   }
   else {
-    $allowed_currencies = (isset($field['widget']['allowed_currencies']) ? array_filter($field['widget']['allowed_currencies']) : array());
+    // When validating the default value in field settings panel, CCK is giving
+    // us the options at field level, not within the widget item of the field.
+    if (!empty($field['allowed_currencies'])) {
+      $allowed_currencies = (isset($field['allowed_currencies']) ? array_filter($field['allowed_currencies']) : array());
+      $amount_required = FALSE;
+    }
+    else {
+      $allowed_currencies = (isset($field['widget']['allowed_currencies']) ? array_filter($field['widget']['allowed_currencies']) : array());
+      $amount_required = TRUE;
+    }
+    // When no currency is enabled, allow them all.
+    if (empty($allowed_currencies)) {
+      $allowed_currencies = currency_api_get_list();
+    }
     if (!isset($allowed_currencies[$currency])) {
       if (!$field['required']) {
         $errors[] = t('%name: The currency %currency is not allowed.', array('%name' => $widget_label, '%currency' => $currency));
       }
     }
-    else if (!is_numeric($amount)) {
+    else if (!is_numeric($amount) && $amount_required) {
       $errors[] = t('%name: A valid amount is required when a currency is specified.', array('%name' => $widget_label));
     }
   }
