@@ -13,6 +13,7 @@ function money_requirements($phase) {
   if ($phase == 'install') {
     $requirements = array();
     $t = get_t();
+    drupal_load('module', 'format_number');
     if (!function_exists('format_number_get_options')) {
       $requirements['format_number'] = array(
         'title' => $t('Format Number API'),
@@ -23,6 +24,7 @@ function money_requirements($phase) {
         )),
       );
     }
+    drupal_load('module', 'formatted_number');
     if (!function_exists('formatted_number_widget_validate')) {
       $requirements['formatted_number'] = array(
         'title' => $t('Formatted Number CCK'),
@@ -102,6 +104,40 @@ function money_update_6000() {
       $ret[] = array(
         'success' => $success !== FALSE,
         'query' => strtr('Updating definition of the Money CCK field: %field-name.', array('%field-name' => $field->field_name)),
+      );
+    }
+  }
+
+  if (!empty($ret)) {
+    content_clear_type_cache();
+  }
+  return $ret;
+}
+
+/**
+ * Update all money fields to reflect the changes in display mode setting.
+ *
+ * Reference:
+ * http://drupal.org/node/217842
+ */
+function money_update_6001() {
+  drupal_load('module', 'content');
+
+  if ($abort = content_check_update('money')) {
+    return $abort;
+  }
+
+  $ret = array();
+  $result = db_query("SELECT field_name, type_name, widget_settings FROM {content_node_field_instance} WHERE widget_type = 'money_widget'");
+  while ($field = db_fetch_object($result)) {
+    $widget_settings = unserialize($field->widget_settings);
+    if (isset($widget_settings['currency_display_mode'])) {
+      $widget_settings['currency_display_mode'] = ($widget_settings['currency_display_mode'] == 'symbol' ? 'a|+|s' : 'a|+|c');
+      $widget_settings = serialize($widget_settings);
+      $success = db_query("UPDATE {content_node_field_instance} SET widget_settings = '%s' WHERE type_name = '%s' AND field_name = '%s'", $widget_settings, $field->type_name, $field->field_name);
+      $ret[] = array(
+        'success' => $success !== FALSE,
+        'query' => strtr('Updating definition of the Money CCK field %field-name for type %type-name.', array('%field-name' => $field->field_name, '%type-name' => $field->type_name)),
       );
     }
   }

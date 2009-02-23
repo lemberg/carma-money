@@ -24,7 +24,6 @@ function money_theme() {
     'money_formatter_default' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_nozeros' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_unformatted' => array('arguments' => array('element' => NULL)),
-    'money_currency' => array('arguments' => array('currency' => NULL, 'mode' => NULL)),
   );
 }
 
@@ -140,24 +139,45 @@ function money_widget_settings($op, $widget) {
         '#required' => TRUE,
         '#description' => t('Choose the format of the label that will be displayed for options of the currency select list.'),
       );
-      $options = array('code' => t('Currency code'), 'symbol' => t('Currency symbol'));
+      $options = money_get_display_modes();
       $form['currency_display_mode'] = array(
-        '#type' => 'radios',
+        '#type' => 'select',
         '#title' => t('Currency display mode'),
         '#options' => $options,
-        '#default_value' => (isset($widget['currency_display_mode']) && isset($options[$widget['currency_display_mode']]) ? $widget['currency_display_mode'] : 'code'),
+        '#default_value' => (isset($widget['currency_display_mode']) && isset($options[$widget['currency_display_mode']]) ? $widget['currency_display_mode'] : 'a|+|c'),
         '#required' => TRUE,
-        '#description' => t('Choose the format that will be used to display the currency when a node is rendered.'),
+        '#description' => t('Choose the format that will be used to display this money field when a node is rendered.'),
       );
+      if (function_exists('currency_api_get_currencies')) {
+        $options = array('field' => t('Field precision'), 'currency' => t('Currency precision'));
+        $form['decimals_display_mode'] = array(
+          '#type' => 'radios',
+          '#title' => t('Decimals display mode'),
+          '#options' => $options,
+          '#default_value' => (isset($widget['decimals_display_mode']) && isset($options[$widget['decimals_display_mode']]) ? $widget['decimals_display_mode'] : 'field'),
+          '#required' => TRUE,
+          '#description' => t('Choose the method to select the number of decimals used to display the field. The standard precision for each currency is displayed in the <em>Available currencies</em> list.'),
+        );
+        $currency_options = array();
+        foreach (currency_api_get_currencies() as $code => $currency) {
+          $currency_options[$code] = $currency['name'] .' ['. $currency['decimals'] .']';
+        }
+      }
+      else {
+        $currency_options = currency_api_get_list();
+      }
       $form['currencies'] = array(
         '#type' => 'fieldset',
         '#title' => t('Available currencies'),
         '#collapsible' => TRUE, '#collapsed' => TRUE,
         '#description' => t('Choose the currencies that you want to enable for this field. Do not select any currency to enable them all.'),
       );
+      if (function_exists('currency_api_get_currencies')) {
+        $form['currencies']['#description'] .= ' '. t('The number between square brakets indicates the standard precision for each currency.');
+      }
       $form['currencies']['allowed_currencies'] = array(
         '#type' => 'checkboxes',
-        '#options' => currency_api_get_list(),
+        '#options' => $currency_options,
         '#default_value' => (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies']) ? $widget['allowed_currencies'] : array()),
         '#checkall' => TRUE,
         '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
@@ -166,8 +186,26 @@ function money_widget_settings($op, $widget) {
       return $form;
 
     case 'save':
-      return array('currency_select_mode', 'currency_display_mode', 'allowed_currencies');
+      return array('currency_select_mode', 'currency_display_mode', 'decimals_display_mode', 'allowed_currencies');
   }
+}
+
+/**
+ * Obtain display modes for money fields.
+ */
+function money_get_display_modes() {
+  return array(
+    's|a' => t('Symbol + Amount'),
+    's|+|a' => t('Symbol + Space + Amount'),
+    'a|s' => t('Amount + Symbol'),
+    'a|+|s' => t('Amount + Space + Symbol'),
+    's|a|+|c' => t('Symbol + Amount + Space + Currency Code'),
+    's|+|a|+|c' => t('Symbol + Space + Amount + Space + Currency Code'),
+    'a|+|c' => t('Amount + Space + Currency Code'),
+    'c|+|a' => t('Currency Code + Space + Amount'),
+    'c|+|a|s' => t('Currency Code + Space + Amount + Symbol'),
+    'c|+|a|+|s' => t('Currency Code + Space + Amount + Space + Symbol'),
+  );
 }
 
 /**
@@ -287,24 +325,35 @@ function money_get_widget_currencies($field) {
   // Currently implemented modes: code, name. See money_widget_settings().
   $mode = $field['widget']['currency_select_mode'];
 
-  // Make sure we have an array of allowed currencies.
+  // Prepare the array of allowed currencies.
   if (isset($field['widget']['allowed_currencies']) && is_array($field['widget']['allowed_currencies'])) {
+    // Obtain the list of currencies in the form of 'code' => 'code'.
     $allowed_currencies = array_filter($field['widget']['allowed_currencies']);
   }
   else {
+    // Initialize array when the list has not been already set in field settings.
     $allowed_currencies = array();
   }
 
   // When no currency has been specified in widget settings we allow them all.
   if (empty($allowed_currencies)) {
+    // Obtain the list of currencies in the form of 'code' => 'name'.
     $allowed_currencies = currency_api_get_list();
     if ($mode == 'code') {
+      // Transform the array if currency selection mode is set to 'code'.
+      // Build the array keys and values from the array keys so that we get
+      // a list of currencies in the form of 'code' => 'code'.
       $allowed_currencies = array_keys($allowed_currencies);
       $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
     }
   }
   else {
+    // One or more currencies have been specified in widget settings.
+    // The array of allowed currencies is in the form of 'code' => 'code'.
     if ($mode == 'name') {
+      // Transform the array if currency selection mode is set to 'name'.
+      // Build the array in the form of 'code' => 'name' extracting the
+      // allowed currencies from the array returned from currency_api.
       $allowed_currencies = array_intersect_key(currency_api_get_list(), $allowed_currencies);
     }
   }
@@ -338,11 +387,39 @@ function theme_money_formatter_unformatted($element) {
   if (!is_numeric($amount)) {
     return '';
   }
-  $field = content_fields($element['#field_name'], $element['#type_name']);
-  $currency = theme('money_currency', $element['#item']['currency'], $field['widget']['currency_display_mode']);
 
-  // raw number + space + currency.
-  return $amount .' '. $currency;
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  $currency = $element['#item']['currency'];
+
+  // Format the whole field based on widget display options.
+  $output = '';
+  $display_options = explode('|', $field['widget']['currency_display_mode']);
+  foreach ($display_options as $option) {
+    // 's|+|a|+|c'
+    switch ($option) {
+      case 'a':
+        // raw number.
+        $output .= $amount;
+        break;
+      case 's':
+        // Currency symbol.
+        $currency_symbols = currency_api_get_symbols();
+        if (isset($currency_symbols[$currency])) {
+          $output .= $currency_symbols[$currency];
+          break;
+        }
+        // Fall back to currency code.
+      case 'c':
+        // Currency code.
+        $output .= $currency;
+        break;
+      case '+':
+        // Whitespace.
+        $output .= ' ';
+        break;
+    }
+  }
+  return $output;
 }
 
 /**
@@ -355,29 +432,60 @@ function theme_money_formatter_generic($element) {
   if (!is_numeric($amount)) {
     return '';
   }
+
   $field = content_fields($element['#field_name'], $element['#type_name']);
-  $decimals = ($element['#formatter'] == 'nozeros' ? -1 : (isset($field['decimals']) ? (int)$field['decimals'] : 0));
-  $formatted_number = format_number($amount, $decimals);
-  $currency = theme('money_currency', $element['#item']['currency'], $field['widget']['currency_display_mode']);
+  $currency = $element['#item']['currency'];
 
-  // formatted number + no-break space + currency.
-  return $formatted_number ."\xC2\xA0". $currency;
-}
-
-/**
- * Display a currency code or symbol.
- *
- * @ingroup themeable
- */
-function theme_money_currency($currency, $mode = 'code') {
-  static $currency_symbols;
-  if ($mode == 'symbol') {
-    if (!isset($currency_symbols)) {
-      $currency_symbols = currency_api_get_symbols();
-    }
-    if (isset($currency_symbols[$currency])) {
-      $currency = $currency_symbols[$currency];
+  // The number of decimals depends on the formatter being used and
+  // the field options.
+  if ($element['#formatter'] == 'nozeros') {
+    // For this formatter we display only relevant zeros.
+    $decimals = -1;
+  }
+  else {
+    // See if the precision should be taken from the field itself or from the currency data.
+    if (isset($field['widget']['decimals_display_mode']) && $field['widget']['decimals_display_mode'] == 'currency') {
+      $currencies = currency_api_get_currencies();
+      if (isset($currencies[$currency]['decimals'])) {
+        $decimals = $currencies[$currency]['decimals'];
+      }
     }
   }
-  return $currency;
+  // When no decimals have been set, use the number from the field settings.
+  if (!isset($decimals)) {
+    $decimals = (isset($field['decimals']) ? (int)$field['decimals'] : 0);
+  }
+
+  // Format the amount.
+  $formatted_number = format_number($amount, $decimals);
+
+  // Format the whole field based on widget display options.
+  $output = '';
+  $display_options = explode('|', $field['widget']['currency_display_mode']);
+  foreach ($display_options as $option) {
+    // 's|+|a|+|c'
+    switch ($option) {
+      case 'a':
+        // Formatted number.
+        $output .= $formatted_number;
+        break;
+      case 's':
+        // Currency symbol.
+        $currency_symbols = currency_api_get_symbols();
+        if (isset($currency_symbols[$currency])) {
+          $output .= $currency_symbols[$currency];
+          break;
+        }
+        // Fall back to currency code.
+      case 'c':
+        // Currency code.
+        $output .= $currency;
+        break;
+      case '+':
+        // Non-break space.
+        $output .= "\xC2\xA0";
+        break;
+    }
+  }
+  return $output;
 }
