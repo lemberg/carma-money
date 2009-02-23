@@ -395,7 +395,6 @@ function theme_money_formatter_unformatted($element) {
   $output = '';
   $display_options = explode('|', $field['widget']['currency_display_mode']);
   foreach ($display_options as $option) {
-    // 's|+|a|+|c'
     switch ($option) {
       case 'a':
         // raw number.
@@ -463,7 +462,6 @@ function theme_money_formatter_generic($element) {
   $output = '';
   $display_options = explode('|', $field['widget']['currency_display_mode']);
   foreach ($display_options as $option) {
-    // 's|+|a|+|c'
     switch ($option) {
       case 'a':
         // Formatted number.
