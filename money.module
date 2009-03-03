@@ -175,10 +175,16 @@ function money_widget_settings($op, $widget) {
       if (function_exists('currency_api_get_currencies')) {
         $form['currencies']['#description'] .= ' '. t('The number between square brakets indicates the standard precision for each currency.');
       }
+      if (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies'])) {
+        $allowed_currencies = array_filter($widget['allowed_currencies']);
+      }
+      else {
+        $allowed_currencies = array();
+      }
       $form['currencies']['allowed_currencies'] = array(
         '#type' => 'checkboxes',
         '#options' => $currency_options,
-        '#default_value' => (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies']) ? $widget['allowed_currencies'] : array()),
+        '#default_value' => $allowed_currencies,
         '#checkall' => TRUE,
         '#prefix' => '<div class="money-field-currency-checkboxes">', '#suffix' => '</div>',
       );
