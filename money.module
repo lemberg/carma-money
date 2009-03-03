@@ -176,7 +176,8 @@ function money_widget_settings($op, $widget) {
         $form['currencies']['#description'] .= ' '. t('The number between square brakets indicates the standard precision for each currency.');
       }
       if (isset($widget['allowed_currencies']) && is_array($widget['allowed_currencies'])) {
-        $allowed_currencies = array_filter($widget['allowed_currencies']);
+        $allowed_currencies = array_keys(array_filter($widget['allowed_currencies']));
+        $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
       }
       else {
         $allowed_currencies = array();
