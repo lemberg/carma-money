@@ -334,7 +334,7 @@ function money_get_widget_currencies($field) {
 
   // Prepare the array of allowed currencies.
   if (isset($field['widget']['allowed_currencies']) && is_array($field['widget']['allowed_currencies'])) {
-    // Obtain the list of currencies in the form of 'code' => 'code'.
+    // Obtain the list of allowed currencies. Note that this array is in the form of 'code' => boolean.
     $allowed_currencies = array_filter($field['widget']['allowed_currencies']);
   }
   else {
@@ -344,25 +344,23 @@ function money_get_widget_currencies($field) {
 
   // When no currency has been specified in widget settings we allow them all.
   if (empty($allowed_currencies)) {
-    // Obtain the list of currencies in the form of 'code' => 'name'.
+    // Note that this array is built in the form of 'code' => 'name'.
     $allowed_currencies = currency_api_get_list();
-    if ($mode == 'code') {
-      // Transform the array if currency selection mode is set to 'code'.
-      // Build the array keys and values from the array keys so that we get
-      // a list of currencies in the form of 'code' => 'code'.
-      $allowed_currencies = array_keys($allowed_currencies);
-      $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
-    }
   }
   else {
     // One or more currencies have been specified in widget settings.
-    // The array of allowed currencies is in the form of 'code' => 'code'.
     if ($mode == 'name') {
-      // Transform the array if currency selection mode is set to 'name'.
       // Build the array in the form of 'code' => 'name' extracting the
       // allowed currencies from the array returned from currency_api.
       $allowed_currencies = array_intersect_key(currency_api_get_list(), $allowed_currencies);
     }
+  }
+
+  // If the requested mode is 'code', then we need to transform the array
+  // so that item keys are also used for values.
+  if ($mode == 'code') {
+    $allowed_currencies = array_keys($allowed_currencies);
+    $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
   }
 
   // When field is not required, an additional empty currency is pushed on top of the resulting list.
