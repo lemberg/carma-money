@@ -24,6 +24,7 @@ function money_theme() {
     'money_formatter_default' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_nozeros' => array('arguments' => array('element' => NULL), 'function' => 'theme_money_formatter_generic'),
     'money_formatter_unformatted' => array('arguments' => array('element' => NULL)),
+    'money_field' => array('arguments' => array('amount' => NULL, 'currency' => NULL, 'display_options' => NULL, 'separator' => NULL)),
   );
 }
 
@@ -402,33 +403,7 @@ function theme_money_formatter_unformatted($element) {
   $currency = $element['#item']['currency'];
 
   // Format the whole field based on widget display options.
-  $output = '';
-  $display_options = explode('|', $field['widget']['currency_display_mode']);
-  foreach ($display_options as $option) {
-    switch ($option) {
-      case 'a':
-        // raw number.
-        $output .= $amount;
-        break;
-      case 's':
-        // Currency symbol.
-        $currency_symbols = currency_api_get_symbols();
-        if (isset($currency_symbols[$currency])) {
-          $output .= $currency_symbols[$currency];
-          break;
-        }
-        // Fall back to currency code.
-      case 'c':
-        // Currency code.
-        $output .= $currency;
-        break;
-      case '+':
-        // Whitespace.
-        $output .= ' ';
-        break;
-    }
-  }
-  return $output;
+  return theme('money_field', $amount, $currency, $field['widget']['currency_display_mode'], ' ');
 }
 
 /**
@@ -469,13 +444,31 @@ function theme_money_formatter_generic($element) {
   $formatted_number = format_number($amount, $decimals);
 
   // Format the whole field based on widget display options.
+  return theme('money_field', $formatted_number, $currency, $field['widget']['currency_display_mode']);
+}
+
+/**
+ * Display an amount and currency with the given display options.
+ *
+ * @param $amount
+ *   The amount (raw or formatted).
+ * @param $currency
+ *   The currency code.
+ * @param $display_options
+ *   The string that provides display options as configured in widget settings.
+ * @param $separator
+ *   The character used as a separator when specified by '+' is display options.
+ *   Defaults to non-break space.
+ *
+ * @ingroup themeable
+ */
+function theme_money_field($amount, $currency, $display_options, $separator = "\xC2\xA0") {
   $output = '';
-  $display_options = explode('|', $field['widget']['currency_display_mode']);
-  foreach ($display_options as $option) {
+  foreach (explode('|', $display_options) as $option) {
     switch ($option) {
       case 'a':
-        // Formatted number.
-        $output .= $formatted_number;
+        // The amount.
+        $output .= $amount;
         break;
       case 's':
         // Currency symbol.
@@ -490,8 +483,8 @@ function theme_money_formatter_generic($element) {
         $output .= $currency;
         break;
       case '+':
-        // Non-break space.
-        $output .= "\xC2\xA0";
+        // Separator.
+        $output .= $separator;
         break;
     }
   }

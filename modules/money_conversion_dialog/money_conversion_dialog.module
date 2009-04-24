@@ -49,14 +49,16 @@ function money_conversion_dialog_ajax_callback($op, $arg = '') {
   $settings = explode('|', $arg);
 
   // Validate amount, decimals and currency_display_mode.
-  if (!is_numeric($settings[0]) || !is_numeric($settings[1]) || !in_array($settings[2], array('code', 'symbol'))) {
-    return drupal_json(array('error' => t('Invalid operation settings: @settings', array('@settings' => $arg))));
+  $display_mode = str_replace(array(':', ' '), array('|', '+'), $settings[2]);
+  $display_modes = money_get_display_modes();
+  if (!is_numeric($settings[0]) || !is_numeric($settings[1]) || !isset($display_modes[$display_mode])) {
+    return drupal_json(array('error' => t('Invalid money data in operation settings: @settings', array('@settings' => $arg))));
   }
 
   // Validate from_currency and to_currency.
   $currency_symbols = currency_api_get_symbols();
   if (!isset($currency_symbols[$settings[3]]) || !isset($currency_symbols[$settings[4]])) {
-    return drupal_json(array('error' => t('Invalid operation settings: @settings', array('@settings' => $arg))));
+    return drupal_json(array('error' => t('Invalid currencies in operation settings: @settings', array('@settings' => $arg))));
   }
 
   // Use the Currency API to perform the conversion.
@@ -65,9 +67,12 @@ function money_conversion_dialog_ajax_callback($op, $arg = '') {
     return drupal_json(array('error' => t('Currency exchange error: ') . t($ret['message'])));
   }
 
+  // Format the amount.
+  $formatted_number = format_number($ret['value'], (int)$settings[1]);
+
   // Build formatted result.
   return drupal_json(array(
-    'money' => format_number($ret['value'], (int)$settings[1]) ."\xC2\xA0". theme('money_currency', $settings[4], $settings[2]),
+    'money' => theme('money_field', $formatted_number, $settings[4], $display_mode),
     'from' => $settings[3],
     'to' => $settings[4],
   ));
@@ -147,7 +152,7 @@ function theme_money_conversion_dialog($element) {
   $settings = implode('|', array(
     $element['#item']['amount'],
     (isset($field['decimals']) ? (int)$field['decimals'] : 0),
-    $field['widget']['currency_display_mode'],
+    str_replace('|', ':', $field['widget']['currency_display_mode']),
     $element['#item']['currency'],
   ));
 
