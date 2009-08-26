@@ -17,6 +17,7 @@ Drupal.behaviors.moneyConversionDialog = function (context) {
 Drupal.moneyConversionDialog = function (moneyItem, acdb) {
   // amount, decimals, currency_display_mode, currency.
   var field_settings = $(moneyItem).attr("class").replace(/^.*\[(.*?)\].*$/, "$1");
+  var dialogSize = Drupal.theme('moneyConversionDialogSize');
 
   $(moneyItem).addClass('money-item-processed').append('&nbsp;').append(
     $(Drupal.theme('moneyConversionIcon')).click(function () {
@@ -29,8 +30,13 @@ Drupal.moneyConversionDialog = function (moneyItem, acdb) {
         overlay: {opacity: 0.5, background: '#000000'},
         title: Drupal.t('Currency conversion | !amount', {'!amount': $(moneyItem).text()}),
         dialogClass: 'money-conversion-wrapper',
-        close: function () { acdb.cancel(); },
-        width: '450px', height: '200px',
+        close: function () {
+          acdb.cancel();
+          $('#money-conversion-dialog').dialog('destroy');
+          $('#money-conversion-form').remove();
+        },
+        width: dialogSize.width,
+        height: dialogSize.height,
         resizable: false,
         modal: true
       });
@@ -102,4 +108,11 @@ Drupal.theme.prototype.moneyConversionResult = function (money, from, to) {
   var output = '<div>' + Drupal.checkPlain(money) + '</div>';
   output += '<p><a href="http://finance.yahoo.com/q?s=' + from + to + '=X" target="_blank">' + Drupal.t('Detailed history and chart') + '</a></p>';
   return output;
+};
+
+/**
+ * Allow themers override the modal dialog size (in pixels).
+ */
+Drupal.theme.prototype.moneyConversionDialogSize = function() {
+  return {width: 450, height: 250};
 };
