@@ -52,7 +52,7 @@ function money_field_settings($op, $field) {
       $form['decimals'] = array(
         '#type' => 'select',
         '#title' => t('Decimals'),
-        '#options' => drupal_map_assoc(range(0, 4)),
+        '#options' => drupal_map_assoc(range(0, FORMAT_NUMBER_MAX_PRECISION)),
         '#default_value' => (is_numeric($field['decimals']) && (int)$field['decimals'] >= 0 ? $field['decimals'] : 2),
         '#description' => t('The number of digits to the right of the decimal point.'),
       );
