@@ -1,4 +1,3 @@
-; $Id$
 name = Money CCK field Conversion Dialog
 description = "Provides a 'Click to convert!' addon for Money CCK fields."
 dependencies[] = content

@@ -1,4 +1,3 @@
-; $Id$
 name = Money CCK field
 description = Defines a CCK field with an amount and a currency.
 dependencies[] = content

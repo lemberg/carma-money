@@ -1,6 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Money CCK field for CCK 2 and Drupal 6
-;; $Id$
 ;;
 ;; Current maintainer: markus_petrux  (http://drupal.org/user/39593)
 ;; Original author   : Wim Leers      (http://drupal.org/user/99777)

@@ -1,4 +1,3 @@
-// $Id$
 
 Drupal.behaviors.moneyConversionDialog = function (context) {
   var acdb;

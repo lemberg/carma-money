@@ -1,4 +1,3 @@
-# $Id$
 #
 # LANGUAGE translation of Money CCK field module
 # Copyright YEAR NAME <EMAIL@ADDRESS>
