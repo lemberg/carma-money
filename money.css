@@ -1,5 +1,9 @@
-
-/* Put the description of the "amount" form item below the form items. */
-div.money-field-form-items div.description {
-	display: block;
+/* Checkboxes for currency selection. */
+.money-field-currency-checkboxes .form-checkboxes .form-item {
+  display: block;
+  float: left;
+  width: 300px;
 }
+.money-field-currency-checkboxes .description {
+  clear: both;
+
