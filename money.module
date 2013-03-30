@@ -6,6 +6,17 @@
  */
 
 /**
+ * Implementation of hook_init().
+ */
+function money_init() {
+  /*
+  if (module_exists('diff')) {
+    module_load_include('inc', 'money', 'includes/money.diff');
+  }
+  */
+}
+
+/**
  * Implements hook_field_info().
  */
 function money_field_info() {
