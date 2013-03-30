@@ -286,14 +286,14 @@ function money_get_widget_currencies($instance, $element) {
   // When no currency has been specified in widget settings we allow them all.
   if (empty($allowed_currencies)) {
     // Note that this array is built in the form of 'code' => 'name'.
-    $allowed_currencies = currency_api_get_list();
+    $allowed_currencies = currency_options();
   }
   else {
     // One or more currencies have been specified in widget settings.
     if ($mode == 'name') {
       // Build the array in the form of 'code' => 'name' extracting the
       // allowed currencies from the array returned from currency_api.
-      $allowed_currencies = array_intersect_key(currency_api_get_list(), $allowed_currencies);
+      $allowed_currencies = array_intersect_key(currency_options(), $allowed_currencies);
     }
   }
 
@@ -353,7 +353,7 @@ function money_field_widget_settings_form($field, $instance) {
     }
   }
   else {
-    $currency_options = currency_api_get_list();
+    $currency_options = currency_options();
   }
   $form['currencies'] = array(
     '#type' => 'fieldset',
