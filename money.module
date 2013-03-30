@@ -13,6 +13,9 @@ function money_init() {
   if (module_exists('diff')) {
     module_load_include('inc', 'money', 'includes/money.diff');
   }
+  if (module_exists('feeds')) {
+    module_load_include('inc', 'money', 'includes/money.feeds');
+  }
   */
 }
 
