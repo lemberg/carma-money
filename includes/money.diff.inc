@@ -6,7 +6,7 @@
  */
 
 /**
- * Implementation of hook_diff().
+ * Implements hook_diff().
  */
 function money_diff(&$old_node, &$new_node) {
   $result = array();

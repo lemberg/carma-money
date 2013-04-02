@@ -6,7 +6,7 @@
  */
 
 /**
- * Implementation of hook_init().
+ * Implements hook_init().
  */
 function money_init() {
   if (module_exists('diff')) {
@@ -102,6 +102,27 @@ function money_field_instance_settings_form($field, $instance) {
 }
 
 /**
+ * Validate the element for min/max limits.
+ * Copied from http://drupalcode.org/sandbox/nouriassafi/1603812.git fork of formatted_number module.
+ */
+function _element_validate_limit($element, &$form_state) {
+  $value = $element['#value'];
+  $field_name = $form_state['values']['instance']['field_name'];
+  $field = $form_state['field'][$field_name][LANGUAGE_NONE]['field'];
+  if ($value != '' && !is_numeric($value)) {
+    form_error($element, t('%name must be a number.', array('%name' => $element['#title'])));
+  }
+  if ($value != '' && isset($field['settings']['min'])) {
+    if ($element['#name'] == 'instance[settings][min]' && $value < $field['settings']['min']) {
+      form_error($element, t('%name: the value may be no less than %min.', array('%name' => $element['#title'], '%min' => $field['settings']['min'])));
+    }
+    if ($element['#name'] == 'instance[settings][max]' && $value > $field['settings']['max']) {
+      form_error($element, t('%name: the value may be no greater than %max.', array('%name' => $element['#title'], '%max' => $field['settings']['max'])));
+    }
+  }
+}
+
+/**
  * Implements hook_field_validate().
  *
  * Possible error codes:
@@ -175,9 +196,24 @@ function money_field_formatter_info() {
 function money_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
   $element = array();
 
+  // Dependency required by CurrencyLocalePattern class.
+  ctools_include('export');
+
   foreach ($items as $delta => $item) {
-    $amount = $display['type'] == 'money_default' ? format_number($item['amount'], $field['settings']['scale']) : $item['amount'];
     $currency = $item['currency'];
+    $currency_object = currency_load($currency);
+    $currency_pattern = CurrencyLocalePattern::loadFromEnv();
+
+    $symbol = $currency_object->sign;
+    $decimal_separator = $currency_pattern->symbol_decimal_separator;
+    $grouping_separator = $currency_pattern->symbol_grouping_separator;
+
+    // Amount with currency-based decimal and grouping separators.
+    $amount = number_format($item['amount'], $field['settings']['scale'], $decimal_separator, $grouping_separator);
+
+    // Amount with currency-based decimal and grouping separators and a currency symbol.
+    $amount_with_symbol = $display['type'] == 'money_default' ? $currency_object->format($item['amount']) : $item['amount'];
+
     $output = '';
     foreach (explode('|', $instance['widget']['settings']['currency_display_mode']) as $option) {
       switch ($option) {
@@ -185,18 +221,22 @@ function money_field_formatter_view($entity_type, $entity, $field, $instance, $l
         // The amount.
         $output .= $amount;
         break;
-      case 's':
-        // Currency symbol.
-        $currency_symbols = currency_api_get_symbols();
-        if (isset($currency_symbols[$currency])) {
-          $output .= $currency_symbols[$currency];
-          break;
-        }
-        // Fall back to currency code.
+
+      case 'as':
+        // Amount with currency symbol.
+        $output .= $amount_with_symbol;
+        break;
+
       case 'c':
         // Currency code.
         $output .= $currency;
         break;
+
+      case 's':
+        // Currency symbol.
+        $output .= $symbol;
+        break;
+
       case '+':
         // Separator.
         $output .= $display['type'] == 'money_default' ? "\xC2\xA0" : ' ';
@@ -220,7 +260,7 @@ function money_field_widget_info() {
       'field types' => array('money'),
       'settings' => array(
         'currency_select_mode' => 'name',
-        'currency_display_mode' => 'a|+|c',
+        'currency_display_mode' => 'ac',
         'decimals_display_mode' => 'field',
         'currencies' => array(
           'allowed_currencies' => array()
@@ -253,14 +293,14 @@ function money_field_widget_form(&$form, &$form_state, $field, $instance, $langc
     '#attributes' => array('class' => array('formatted-number'), 'decimals' => $field['settings']['scale']),
     '#attached' => array(
       'css' => array(
-        drupal_get_path('module', 'format_number') . '/format_number.css',
-        drupal_get_path('module', 'formatted_number') . '/formatted_number.css',
+        // Removed dependency to format_number module.
+        // Removed dependency to formatted_number module.
       ),
       'js' => array(
-        drupal_get_path('module', 'format_number') . '/format_number.js',
-        drupal_get_path('module', 'formatted_number') . '/formatted_number.js',
+        // Removed dependency to format_number module.
+        // Removed dependency to formatted_number module.
         array(
-          'data' => array('format_number' => format_number_get_options()),
+          'data' => array(), // Removed dependency to format_number module.
           'type' => 'setting',
         ),
       ),
@@ -408,6 +448,7 @@ function money_field_widget_settings_form($field, $instance) {
  */
 function money_get_display_modes() {
   return array(
+    'as' => t('Localized format of amount with currency symbol'),
     's|a' => t('Symbol + Amount'),
     's|+|a' => t('Symbol + Space + Amount'),
     'a|s' => t('Amount + Symbol'),
@@ -416,6 +457,7 @@ function money_get_display_modes() {
     's|+|a|+|c' => t('Symbol + Space + Amount + Space + Currency Code'),
     'a|+|c' => t('Amount + Space + Currency Code'),
     'c|+|a' => t('Currency Code + Space + Amount'),
+    'c|+|as' => t('Currency Code + Space + Localized format of amount with currency symbol'),
     'c|+|a|s' => t('Currency Code + Space + Amount + Symbol'),
     'c|+|a|+|s' => t('Currency Code + Space + Amount + Space + Symbol'),
   );
@@ -427,7 +469,10 @@ function money_get_display_modes() {
 function money_field_widget_validate($element, &$form_state) {
   $instance = field_widget_instance($element, $form_state);
   $value = $element['amount']['#value'];
-  $decimal_separator = format_number_get_options('decimal_point');
+  // Dependency required by CurrencyLocalePattern class.
+  ctools_include('export');
+
+  $decimal_separator = CurrencyLocalePattern::loadFromEnv()->symbol_decimal_separator;
 
   // Reject invalid characters.
   if (!empty($value)) {
@@ -462,4 +507,3 @@ function money_field_widget_validate($element, &$form_state) {
 function money_field_widget_error($element, $error, $form, &$form_state) {
   form_error($element, $error['message']);
 }
-

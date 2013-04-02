@@ -5,3 +5,4 @@ dependencies[] = format_number
 dependencies[] = formatted_number
 package = Fields
 core = 7.x
+files[] = money.module
