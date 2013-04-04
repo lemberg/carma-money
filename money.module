@@ -275,8 +275,14 @@ function money_field_widget_info() {
  */
 function money_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   $value = isset($items[$delta]['amount']) ? $items[$delta]['amount'] : '';
+  
+  // Dependency required by CurrencyLocalePattern class.
+  ctools_include('export');
+
+  $decimal_separator = CurrencyLocalePattern::loadFromEnv()->symbol_decimal_separator;
+
   // Substitute the decimal separator.
-  $value = strtr($value, '.', format_number_get_options('decimal_point'));
+  $value = strtr($value, '.', $decimal_separator);
   $element += array(
     '#type' => 'fieldset',
     '#tree' => TRUE,
