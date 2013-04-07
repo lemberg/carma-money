@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * @file
@@ -7,9 +6,8 @@
  */
 
 /**
- * Implementation of hook_feeds_node_processor_targets_alter().
- *
- * @see FeedsNodeProcessor::getMappingTargets().
+ * Implements hook_feeds_node_processor_targets_alter().
+ * @see FeedsNodeProcessor::getMappingTargets()
  */
 function money_feeds_node_processor_targets_alter(&$targets, $content_type) {
   $info = content_types($content_type);
@@ -37,7 +35,7 @@ function money_feeds_node_processor_targets_alter(&$targets, $content_type) {
 
 function money_feeds_set_target_amount($node, $target, $value) {
   // use just the field name as the target
-  $target = substr($target,0,strrpos($target,'_'));
+  $target = drupal_substr($target, 0, strrpos($target, '_'));
 
   $field = isset($node->$target) ? $node->$target : array();
 
@@ -60,7 +58,7 @@ function money_feeds_set_target_amount($node, $target, $value) {
 
 function money_feeds_set_target_currency($node, $target, $value) {
   // use just the field name as the target
-  $target = substr($target,0,strrpos($target,'_'));
+  $target = drupal_substr($target, 0, strrpos($target, '_'));
 
   $field = isset($node->$target) ? $node->$target : array();
 

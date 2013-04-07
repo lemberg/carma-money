@@ -1,7 +1,6 @@
 name = Money Field
 description = Defines a field with an amount and a currency.
 dependencies[] = currency_api
-dependencies[] = format_number
-dependencies[] = formatted_number
 package = Fields
 core = 7.x
+files[] = money.module
