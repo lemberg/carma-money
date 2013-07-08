@@ -29,8 +29,20 @@ function money_field_info() {
       'instance_settings' => array('min' => '', 'max' => ''),
       'default_widget' => 'money_widget',
       'default_formatter' => 'money_default',
+      'property_type' => 'decimal',
+      'property_callbacks' => array('money_field_property_info_callback'),
     ),
   );
+}
+
+/**
+ * Additional callback to adapt the property info of money field.
+ *
+ * @see entity_metadata_field_entity_property_info()
+ */
+function money_field_property_info_callback(&$info, $entity_type, $field, $instance, $field_type) {
+  $property = &$info[$entity_type]['bundles'][$instance['bundle']]['properties'][$field['field_name']];
+  unset($property['query callback']);
 }
 
 /**
@@ -275,7 +287,7 @@ function money_field_widget_info() {
  */
 function money_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   $value = isset($items[$delta]['amount']) ? $items[$delta]['amount'] : '';
-  
+
   // Dependency required by CurrencyLocalePattern class.
   ctools_include('export');
 
