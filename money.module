@@ -300,6 +300,9 @@ function money_field_widget_form(&$form, &$form_state, $field, $instance, $langc
     '#tree' => TRUE,
     '#attributes' => array('class' => array('container-inline')),
   );
+  if ($instance['required']) {
+      $element['#title'] .= " " . theme('form_required_marker');
+  }
   $element['amount'] = array(
     '#type' => 'textfield',
     '#default_value' => $value,
@@ -374,10 +377,7 @@ function money_get_widget_currencies($instance, $element) {
     $allowed_currencies = array_combine($allowed_currencies, $allowed_currencies);
   }
 
-  // When field is not required, an additional empty currency is pushed on top of the resulting list.
-  if (!$element['#required']) {
-    $allowed_currencies = array('' => ($mode == 'code' ? '---' : t('-- Select currency --'))) + $allowed_currencies;
-  }
+  $allowed_currencies = array('' => ($mode == 'code' ? '---' : t('-- Select currency --'))) + $allowed_currencies;
 
   return $allowed_currencies;
 }
@@ -486,22 +486,30 @@ function money_get_display_modes() {
  */
 function money_field_widget_validate($element, &$form_state) {
   $instance = field_widget_instance($element, $form_state);
-  $value = $element['amount']['#value'];
+  $amount = $element['amount']['#value'];
+  $currency = $element['currency']['#value'];
   // Dependency required by CurrencyLocalePattern class.
   ctools_include('export');
 
   $decimal_separator = CurrencyLocalePattern::loadFromEnv()->symbol_decimal_separator;
 
+  // Validate required field
+  if ($instance['required']) {
+    if (empty($amount) && empty($currency)) {
+      form_error($element, t('!name field is required.', array('!name' => $instance['label'])));
+    }
+  }
+
   // Reject invalid characters.
-  if (!empty($value)) {
+  if (!empty($amount)) {
     $regexp = '@([^-0-9\\' . $decimal_separator . '])|(.-)@';
     $message = t('Only numbers and the decimal separator (@separator) allowed in %field.', array('%field' => $instance['label'], '@separator' => $decimal_separator));
-    if ($value != preg_replace($regexp, '', $value)) {
+    if ($amount != preg_replace($regexp, '', $amount)) {
       form_error($element, $message);
     }
     else {
       // Verify that only one decimal separator exists in the field.
-      if (substr_count($value, $decimal_separator) > 1) {
+      if (substr_count($amount, $decimal_separator) > 1) {
         $message = t('%field: There should only be one decimal separator (@separator).',
           array(
             '%field' => t($instance['label']),
@@ -512,9 +520,9 @@ function money_field_widget_validate($element, &$form_state) {
       }
       else {
         // Substitute the decimal separator; things should be fine.
-        $value = strtr($value, $decimal_separator, '.');
+        $amount = strtr($amount, $decimal_separator, '.');
       }
-      form_set_value($element['amount'], $value, $form_state);
+      form_set_value($element['amount'], $amount, $form_state);
     }
   }
 }
